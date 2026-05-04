@@ -1,0 +1,61 @@
+# Quantum Suitability Validator MCP
+
+MCP server that screens quantum computing POC proposals against expert decision rules -- before your agent escalates any initiative to a committee, allocates budget, or routes to a specialist.
+
+## What it does
+
+Enterprise innovation agents and R&D workflow agents process backlogs of proposed technology initiatives tagged as potential quantum computing candidates. Before escalating any candidate to a human committee, allocating POC budget, or routing to a quantum specialist, the agent calls `quantum_assess_problem` to produce an auditable triage verdict.
+
+This server is **refusal-first by design**. It downgrades or refuses more often than it approves. Every verdict is auditable and machine-readable.
+
+## Tools
+
+### `quantum_assess_problem` (Free: 5/month, no key required)
+
+Screens a quantum computing proposal against expert decision rules. Returns:
+
+- `verdict`: RECOMMENDED_NOW | BENCHMARK_ONLY | HYBRID_ONLY | SIMULATOR_ONLY | NOT_RECOMMENDED | NOT_QUANTUM_AMENABLE | INSUFFICIENT_INFORMATION
+- `suitability_score`: 0.0-1.0
+- `confidence_score`: 0.0-1.0
+- `problem_class`: combinatorial_optimisation | portfolio_optimisation | molecular_simulation | ml_kernel | cryptography_pqc | sampling_monte_carlo | other
+- `dominant_blockers`: specific reasons why the problem fails screening
+- `hype_flags`: detected hype language patterns
+- `baseline_question`: always "What is your classical baseline today, and what metric must improve for this to matter?"
+- `agent_action`: ESCALATE_TO_POC | ROUTE_TO_SIMULATOR | DEFINE_BASELINE_FIRST | REJECT | REQUEST_MORE_INFORMATION
+
+### `quantum_readiness_report` (Pro only)
+
+Full auditable Quantum Readiness Report. Everything from `quantum_assess_problem` plus:
+
+- `recommended_workflow`: CLASSICAL_ONLY | HYBRID | SIMULATOR_ONLY | ANNEALING_PATH | GATE_MODEL_VARIATIONAL
+- `formulation_guidance`: QUBO/Ising/variational suitability, estimated binary variables, penalty dominance risk
+- `hardware_recommendations`: hardware family fit scores with access routes (D-Wave Leap, IBM Cloud, IonQ Cloud)
+- `error_budget_assessment`: viability against current noise floors
+- `classical_baseline_assessment`: baseline strength and minimum benchmark requirement
+- `validation_plan`: ordered steps for technical review board submission
+
+## Connect
+
+### HTTP (Railway -- no install)
+```json
+{"type": "http", "url": "https://quantum-suitability-validator-mcp-production.up.railway.app"}
+```
+
+### stdio (npm -- requires ANTHROPIC_API_KEY)
+```bash
+npx quantum-suitability-validator-mcp
+```
+
+## Pricing
+
+- **Free**: 5 `quantum_assess_problem` calls/month per IP -- no API key required
+- **Pro**: $199/month -- unlimited `quantum_assess_problem` + full `quantum_readiness_report`
+- **Enterprise**: $499/month -- volume + SLA
+
+Upgrade: [kordagencies.com](https://kordagencies.com)
+
+## Legal
+
+AI-assisted triage -- NOT a substitute for experimental physicist review. Results are for informational and planning purposes only and do not constitute expert quantum computing advice. Full terms: kordagencies.com/terms.html
+
+Kord Agencies Pte Ltd, Singapore

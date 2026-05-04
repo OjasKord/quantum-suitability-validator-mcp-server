@@ -1,0 +1,6 @@
+{
+  "name": "quantum-suitability-validator-mcp-server",
+  "description": "MCP server that screens quantum computing POC proposals against expert decision rules. Refusal-first triage engine for innovation agents and R&D workflow agents.",
+  "homepage": "https://kordagencies.com",
+  "license": "MIT"
+}

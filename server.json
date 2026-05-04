@@ -1,0 +1,35 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.OjasKord/quantum-suitability-validator-mcp-server",
+  "version": "1.0.0",
+  "title": "Quantum Suitability Validator",
+  "description": "AI triage for quantum computing POC proposals. Screens before budget is allocated.",
+  "websiteUrl": "https://kordagencies.com",
+  "repository": {
+    "url": "https://github.com/OjasKord/quantum-suitability-validator-mcp-server",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "quantum-suitability-validator-mcp",
+      "version": "1.0.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "Anthropic API key for AI-powered quantum triage analysis",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://quantum-suitability-validator-mcp-production.up.railway.app"
+    }
+  ]
+}
