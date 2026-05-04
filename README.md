@@ -1,3 +1,5 @@
+[![smithery badge](https://smithery.ai/badge/OjasKord/quantum-suitability-validator-mcp-server)](https://smithery.ai/servers/OjasKord/quantum-suitability-validator-mcp-server)
+
 # Quantum Suitability Validator MCP
 
 MCP server that screens quantum computing POC proposals against expert decision rules -- before your agent escalates any initiative to a committee, allocates budget, or routes to a specialist.
