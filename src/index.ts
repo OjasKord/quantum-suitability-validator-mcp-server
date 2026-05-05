@@ -10,6 +10,7 @@ import {
   VERSION,
   PERSIST_FILE,
   FREE_TIER_LIMIT,
+  TRIAL_EXTENSION_CALLS,
   LEGAL_DISCLAIMER,
   PRO_UPGRADE_URL,
   nowISO
@@ -31,7 +32,9 @@ let currentApiKey = '';
 // ---------------------------------------------------------------------------
 function loadStats(): Stats {
   try {
-    return JSON.parse(fs.readFileSync(PERSIST_FILE, 'utf8')) as Stats;
+    const parsed = JSON.parse(fs.readFileSync(PERSIST_FILE, 'utf8')) as Stats;
+    if (!parsed.trial_extensions) parsed.trial_extensions = {};
+    return parsed;
   } catch {
     return {
       free_tier_calls_by_ip: {},
@@ -39,7 +42,8 @@ function loadStats(): Stats {
       total_calls: 0,
       assess_calls: 0,
       report_calls: 0,
-      paid_api_keys: {}
+      paid_api_keys: {},
+      trial_extensions: {}
     };
   }
 }
@@ -70,6 +74,18 @@ function isPaidKey(key: string): boolean {
   return key.length > 0 && Object.prototype.hasOwnProperty.call(stats.paid_api_keys, key);
 }
 
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+  try {
+    await axios.post(
+      'https://api.resend.com/emails',
+      { from: 'Kord Agencies <ojas@kordagencies.com>', to: [to], subject, html },
+      { headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' } }
+    );
+  } catch { /* email failure is non-fatal */ }
+}
+
 function getStatsPayload(): Record<string, unknown> {
   const month = new Date().toISOString().slice(0, 7);
   let freeTierUnique = 0;
@@ -89,6 +105,7 @@ function getStatsPayload(): Record<string, unknown> {
     free_tier_unique_ips: freeTierUnique,
     free_tier_total_calls: freeTierTotal,
     paid_api_keys_count: Object.keys(stats.paid_api_keys).length,
+    trial_extensions_granted: Object.keys(stats.trial_extensions).length,
     checked_at: nowISO()
   };
 }
@@ -388,8 +405,14 @@ server.registerTool(
                 limit_reached: true,
                 monthly_limit: FREE_TIER_LIMIT,
                 agent_action:
-                  'Inform user that free quota is exhausted (5 assessments/month). ' +
-                  `Upgrade at ${PRO_UPGRADE_URL} for unlimited access plus full Quantum Readiness Reports.`,
+                  `Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. ` +
+                  'Option 1: POST /trial-extension with {"name":"...","email":"...","use_case":"..."} for 10 extra free calls. ' +
+                  `Option 2: Upgrade to Pro at ${PRO_UPGRADE_URL} for unlimited access plus full Quantum Readiness Reports.`,
+                trial_extension: {
+                  endpoint: '/trial-extension',
+                  method: 'POST',
+                  body: { name: 'string', email: 'string', use_case: 'string' }
+                },
                 upgrade_url: PRO_UPGRADE_URL,
                 _disclaimer: LEGAL_DISCLAIMER
               })
@@ -594,6 +617,41 @@ async function runHTTP(): Promise<void> {
 
   app.get('/.well-known/mcp/server-card.json', (_req, res) => {
     res.set(cors).json(getServerCard());
+  });
+
+  // Trial extension endpoint
+  app.post('/trial-extension', async (req, res) => {
+    const { name, email, use_case } = req.body as { name?: string; email?: string; use_case?: string };
+    if (!name || !email) {
+      res.status(400).set(cors).json({ error: 'name and email are required', agent_action: 'PROVIDE_REQUIRED_FIELDS' });
+      return;
+    }
+    const emailKey = 'trial:' + email.toLowerCase().trim();
+    if (stats.trial_extensions[emailKey]) {
+      res.status(409).set(cors).json({ error: 'Trial extension already granted for this email.', upgrade_url: PRO_UPGRADE_URL, agent_action: 'INFORM_USER_TRIAL_ALREADY_USED' });
+      return;
+    }
+    const ip =
+      (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
+      req.ip ??
+      'unknown';
+    const month = new Date().toISOString().slice(0, 7);
+    if (!stats.free_tier_calls_by_ip[ip]) stats.free_tier_calls_by_ip[ip] = {};
+    const currentCalls = stats.free_tier_calls_by_ip[ip][month] ?? 0;
+    stats.free_tier_calls_by_ip[ip][month] = Math.max(0, currentCalls - TRIAL_EXTENSION_CALLS);
+    stats.trial_extensions[emailKey] = { name, email, use_case: use_case ?? '', ip, granted_at: nowISO() };
+    saveStats(stats);
+    await sendEmail(
+      'ojas@kordagencies.com',
+      'Quantum Suitability Validator -- Trial Extension: ' + name,
+      '<p><b>Name:</b> ' + name + '<br><b>Email:</b> ' + email + '<br><b>Use case:</b> ' + (use_case ?? 'Not provided') + '<br><b>IP:</b> ' + ip + '<br><b>Calls granted:</b> ' + TRIAL_EXTENSION_CALLS + '</p>'
+    );
+    await sendEmail(
+      email,
+      TRIAL_EXTENSION_CALLS + ' extra free calls added -- Quantum Suitability Validator MCP',
+      '<p>Hi ' + name + ',</p><p>Your ' + TRIAL_EXTENSION_CALLS + ' extra free calls have been added. You can keep using Quantum Suitability Validator MCP right now -- no action needed.</p><p>When you need more, Pro access is available at: ' + PRO_UPGRADE_URL + '</p><p>Ojas<br>kordagencies.com</p>'
+    );
+    res.set(cors).json({ granted: true, additional_calls: TRIAL_EXTENSION_CALLS, message: TRIAL_EXTENSION_CALLS + ' extra free calls added. Check your email for confirmation.', upgrade_url: PRO_UPGRADE_URL });
   });
 
   app.post('/mcp', async (req, res) => {

@@ -116,6 +116,7 @@ export interface Stats {
   assess_calls: number;
   report_calls: number;
   paid_api_keys: Record<string, PaidKeyRecord>;
+  trial_extensions: Record<string, { name: string; email: string; use_case: string; ip: string; granted_at: string }>;
 }
 
 export interface DependencyStatus {

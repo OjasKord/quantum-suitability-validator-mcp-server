@@ -1,4 +1,5 @@
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
+export const TRIAL_EXTENSION_CALLS = 10;
 export const CHARACTER_LIMIT = 25000;
 export const FREE_TIER_LIMIT = 5;
 export const PERSIST_FILE = '/tmp/quantum_stats.json';
