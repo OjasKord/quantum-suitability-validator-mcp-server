@@ -48,6 +48,51 @@ Full auditable Quantum Readiness Report. Everything from `quantum_assess_problem
 npx quantum-suitability-validator-mcp
 ```
 
+## Harness Integration
+
+Note: this server exposes tools at `/mcp` not the root URL.
+
+### Claude Code / Claude Desktop (.mcp.json)
+```json
+{
+  "mcpServers": {
+    "quantum-suitability-validator": {
+      "type": "http",
+      "url": "https://quantum-suitability-validator-mcp-production.up.railway.app/mcp"
+    }
+  }
+}
+```
+
+### LangChain (Python)
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+client = MultiServerMCPClient({
+    "quantum-suitability-validator": {
+        "url": "https://quantum-suitability-validator-mcp-production.up.railway.app/mcp",
+        "transport": "http"
+    }
+})
+tools = await client.get_tools()
+```
+
+### OpenAI Agents SDK (Python)
+```python
+from agents import Agent, HostedMCPTool
+agent = Agent(
+    name="Assistant",
+    tools=[HostedMCPTool(tool_config={
+        "type": "mcp",
+        "server_label": "quantum-suitability-validator",
+        "server_url": "https://quantum-suitability-validator-mcp-production.up.railway.app/mcp",
+        "require_approval": "never"
+    })]
+)
+```
+
+### LangGraph
+Same as LangChain above — langchain-mcp-adapters works with LangGraph natively.
+
 ## Pricing
 
 - **Free**: 5 `quantum_assess_problem` calls/month per IP -- no API key required
