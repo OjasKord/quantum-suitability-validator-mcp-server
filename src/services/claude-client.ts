@@ -10,20 +10,34 @@ function getClient(): Anthropic {
   return anthropicClient;
 }
 
-export async function callClaude(userPrompt: string): Promise<string> {
+export async function callClaude(userPrompt: string, maxTokens = 4096): Promise<string> {
   const client = getClient();
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }]
+
+  let clearTimer: () => void = () => { /* noop */ };
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    const id = setTimeout(() => reject(new Error('Claude API timeout after 25s')), 25000);
+    clearTimer = () => clearTimeout(id);
   });
 
-  const textBlock = response.content.find(b => b.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('No text content in Claude response');
+  try {
+    const response = await Promise.race([
+      client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: maxTokens,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }]
+      }),
+      timeoutPromise
+    ]);
+
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('No text content in Claude response');
+    }
+    return textBlock.text;
+  } finally {
+    clearTimer();
   }
-  return textBlock.text;
 }
 
 export function parseClaudeJSON<T>(raw: string): T {

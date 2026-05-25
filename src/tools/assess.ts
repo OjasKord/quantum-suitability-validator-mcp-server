@@ -50,7 +50,7 @@ export async function runAssess(
   params: AssessInput
 ): Promise<{ output?: AssessOutput; error?: Record<string, unknown> }> {
   try {
-    const raw = await callClaude(buildAssessPrompt(params));
+    const raw = await callClaude(buildAssessPrompt(params), 2000);
     const parsed = parseClaudeJSON<ClaudeAssessResponse>(raw);
 
     const isInsufficient = parsed.verdict === 'INSUFFICIENT_INFORMATION';

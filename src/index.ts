@@ -426,52 +426,67 @@ server.registerTool(
       }
     }
 
-    stats.total_calls++;
-    stats.assess_calls++;
-    if (paid) {
-      stats.paid_calls++;
-      if (stats.paid_api_keys[currentApiKey]) {
-        stats.paid_api_keys[currentApiKey].calls++;
-        stats.paid_api_keys[currentApiKey].last_seen = nowISO();
+    try {
+      stats.total_calls++;
+      stats.assess_calls++;
+      if (paid) {
+        stats.paid_calls++;
+        if (stats.paid_api_keys[currentApiKey]) {
+          stats.paid_api_keys[currentApiKey].calls++;
+          stats.paid_api_keys[currentApiKey].last_seen = nowISO();
+        }
       }
-    }
 
-    const result = await runAssess(params);
+      const result = await runAssess(params);
 
-    if (result.error) {
+      if (result.error) {
+        saveStats(stats);
+        return {
+          isError: true,
+          content: [{ type: 'text' as const, text: JSON.stringify(result.error) }]
+        };
+      }
+
+      if (!paid) incrementFreeTier(ip);
+      saveStats(stats);
+
+      const output = result.output!;
+
+      const remaining = paid ? null : checkFreeTierAllowed(ip).remaining;
+      if (!paid && remaining !== null && remaining <= 1 && remaining > 0) {
+        output._upgrade_notice =
+          `Warning: ${remaining} free assessment(s) remaining this month. ` +
+          output._upgrade_notice;
+      }
+
+      const text =
+        params.response_format === 'markdown'
+          ? formatAssessMarkdown(output)
+          : JSON.stringify(output, null, 2);
+
+      const finalText =
+        text.length > 25000
+          ? text.slice(0, 25000) + '\n\n[Response truncated.]'
+          : text;
+
+      return {
+        content: [{ type: 'text' as const, text: finalText }],
+        structuredContent: output as unknown as Record<string, unknown>
+      };
+    } catch (_err) {
       saveStats(stats);
       return {
         isError: true,
-        content: [{ type: 'text' as const, text: JSON.stringify(result.error) }]
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: 'Assessment timed out. The problem description may be too complex for a single call. Try breaking it into a more specific, narrower problem statement.',
+            agent_action: 'RETRY_WITH_SIMPLER_INPUT',
+            retryable: true
+          })
+        }]
       };
     }
-
-    if (!paid) incrementFreeTier(ip);
-    saveStats(stats);
-
-    const output = result.output!;
-
-    const remaining = paid ? null : checkFreeTierAllowed(ip).remaining;
-    if (!paid && remaining !== null && remaining <= 1 && remaining > 0) {
-      output._upgrade_notice =
-        `Warning: ${remaining} free assessment(s) remaining this month. ` +
-        output._upgrade_notice;
-    }
-
-    const text =
-      params.response_format === 'markdown'
-        ? formatAssessMarkdown(output)
-        : JSON.stringify(output, null, 2);
-
-    const finalText =
-      text.length > 25000
-        ? text.slice(0, 25000) + '\n\n[Response truncated.]'
-        : text;
-
-    return {
-      content: [{ type: 'text' as const, text: finalText }],
-      structuredContent: output as unknown as Record<string, unknown>
-    };
   }
 );
 
@@ -516,42 +531,57 @@ server.registerTool(
       };
     }
 
-    stats.total_calls++;
-    stats.report_calls++;
-    stats.paid_calls++;
-    if (stats.paid_api_keys[currentApiKey]) {
-      stats.paid_api_keys[currentApiKey].calls++;
-      stats.paid_api_keys[currentApiKey].last_seen = nowISO();
-    }
+    try {
+      stats.total_calls++;
+      stats.report_calls++;
+      stats.paid_calls++;
+      if (stats.paid_api_keys[currentApiKey]) {
+        stats.paid_api_keys[currentApiKey].calls++;
+        stats.paid_api_keys[currentApiKey].last_seen = nowISO();
+      }
 
-    const result = await runReport(params);
+      const result = await runReport(params);
 
-    if (result.error) {
+      if (result.error) {
+        saveStats(stats);
+        return {
+          isError: true,
+          content: [{ type: 'text' as const, text: JSON.stringify(result.error) }]
+        };
+      }
+
+      saveStats(stats);
+
+      const output = result.output!;
+
+      const text =
+        params.response_format === 'markdown'
+          ? formatReportMarkdown(output)
+          : JSON.stringify(output, null, 2);
+
+      const finalText =
+        text.length > 25000
+          ? text.slice(0, 25000) + '\n\n[Response truncated.]'
+          : text;
+
+      return {
+        content: [{ type: 'text' as const, text: finalText }],
+        structuredContent: output as unknown as Record<string, unknown>
+      };
+    } catch (_err) {
       saveStats(stats);
       return {
         isError: true,
-        content: [{ type: 'text' as const, text: JSON.stringify(result.error) }]
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: 'Assessment timed out. The problem description may be too complex for a single call. Try breaking it into a more specific, narrower problem statement.',
+            agent_action: 'RETRY_WITH_SIMPLER_INPUT',
+            retryable: true
+          })
+        }]
       };
     }
-
-    saveStats(stats);
-
-    const output = result.output!;
-
-    const text =
-      params.response_format === 'markdown'
-        ? formatReportMarkdown(output)
-        : JSON.stringify(output, null, 2);
-
-    const finalText =
-      text.length > 25000
-        ? text.slice(0, 25000) + '\n\n[Response truncated.]'
-        : text;
-
-    return {
-      content: [{ type: 'text' as const, text: finalText }],
-      structuredContent: output as unknown as Record<string, unknown>
-    };
   }
 );
 

@@ -109,7 +109,7 @@ export async function runReport(
   params: ReportInput
 ): Promise<{ output?: ReportOutput; error?: Record<string, unknown> }> {
   try {
-    const raw = await callClaude(buildReportPrompt(params));
+    const raw = await callClaude(buildReportPrompt(params), 3000);
     const parsed = parseClaudeJSON<ClaudeReportResponse>(raw);
     const fg = parsed.formulation_guidance ?? {};
 

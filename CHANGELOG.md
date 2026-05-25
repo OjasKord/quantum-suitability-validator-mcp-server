@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2] - 2026-05-25
+
+### Fixed
+- Claude API timeout wrapper added (25s `Promise.race`) to prevent Railway 502 on complex calls
+- Graceful structured error response returned on timeout instead of crashing the handler
+- `max_tokens` tuned: 2000 for `quantum_assess_problem`, 3000 for `quantum_readiness_report`
+
 ## [1.0.0] - 2026-05-04
 
 ### Added
