@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.3] - 2026-06-02
+
+### Fixed
+- fix: IP extraction fixed for Cloudflare proxy headers — free tier gate now enforces correctly
+
 ## [1.0.2] - 2026-05-25
 
 ### Fixed
