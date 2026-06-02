@@ -8,3 +8,4 @@ fix.js
 patch.js
 patch*.js
 test_result*
+*.tmp
