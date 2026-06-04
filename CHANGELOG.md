@@ -38,3 +38,4 @@
 - Stripe webhook integration for Pro key provisioning
 - UptimeRobot-compatible /health endpoint (GET + HEAD)
 - Anthropic Registry, Smithery, and npm published
+
