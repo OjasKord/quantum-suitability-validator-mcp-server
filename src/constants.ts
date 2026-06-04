@@ -1,8 +1,9 @@
-export const VERSION = '1.0.3';
+export const VERSION = '1.0.4';
 export const TRIAL_EXTENSION_CALLS = 10;
 export const CHARACTER_LIMIT = 25000;
 export const FREE_TIER_LIMIT = 5;
 export const PERSIST_FILE = '/tmp/quantum_stats.json';
+export const FREE_TIER_REDIS_KEY = 'quantum:free_tier_usage';
 export const PRO_UPGRADE_URL = 'https://buy.stripe.com/cNi28q27P9Hnegk2paebu0x';
 export const ENTERPRISE_UPGRADE_URL = 'https://buy.stripe.com/7sY14m7s98Djfko4xiebu0y';
 

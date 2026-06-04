@@ -13,9 +13,11 @@ import {
   TRIAL_EXTENSION_CALLS,
   LEGAL_DISCLAIMER,
   PRO_UPGRADE_URL,
+  FREE_TIER_REDIS_KEY,
   nowISO
 } from './constants.js';
-import type { Stats, DependencyStatus, ServerCard } from './types.js';
+import type { Stats, DependencyStatus, ServerCard, PaidKeyRecord } from './types.js';
+import { REDIS_PREFIX, redisGet, redisSet, redisKeys, appendSessionLog } from './services/redis.js';
 import { AssessInputSchema } from './schemas/assess.js';
 import { ReportInputSchema } from './schemas/report.js';
 import { runAssess, formatAssessMarkdown } from './tools/assess.js';
@@ -59,6 +61,52 @@ function incrementFreeTier(ip: string): void {
   if (!stats.free_tier_calls_by_ip[ip]) stats.free_tier_calls_by_ip[ip] = {};
   stats.free_tier_calls_by_ip[ip][month] =
     (stats.free_tier_calls_by_ip[ip][month] ?? 0) + 1;
+  saveStats(stats);
+  saveFreeTierToRedis().catch(() => {});
+}
+
+function getEffectiveLimit(ip: string): number {
+  const hasExtension = Object.values(stats.trial_extensions).some(ext => ext.ip === ip);
+  return hasExtension ? FREE_TIER_LIMIT + TRIAL_EXTENSION_CALLS : FREE_TIER_LIMIT;
+}
+
+async function saveKeyToRedis(apiKey: string, record: PaidKeyRecord): Promise<void> {
+  await redisSet(`${REDIS_PREFIX}:key:${apiKey}`, record);
+}
+
+async function loadApiKeysFromRedis(): Promise<void> {
+  const keys = await redisKeys(`${REDIS_PREFIX}:key:*`);
+  for (const redisKey of keys) {
+    const record = await redisGet(redisKey);
+    if (record) {
+      const apiKey = redisKey.replace(`${REDIS_PREFIX}:key:`, '');
+      stats.paid_api_keys[apiKey] = record as PaidKeyRecord;
+    }
+  }
+  console.error(`[quantum] Loaded ${Object.keys(stats.paid_api_keys).length} API keys from Redis`);
+}
+
+async function loadFreeTierFromRedis(): Promise<void> {
+  try {
+    const data = await redisGet(FREE_TIER_REDIS_KEY);
+    if (data && typeof data === 'object') {
+      Object.assign(stats.free_tier_calls_by_ip, data as Record<string, Record<string, number>>);
+      console.error('[FreeTier] Loaded ' + Object.keys(stats.free_tier_calls_by_ip).length + ' IPs from Redis');
+    }
+  } catch (e) { console.error('[FreeTier] load failed:', e); }
+}
+
+async function saveFreeTierToRedis(): Promise<void> {
+  try {
+    const existing = (await redisGet(FREE_TIER_REDIS_KEY) as Record<string, Record<string, number>> | null) ?? {};
+    for (const [ip, months] of Object.entries(stats.free_tier_calls_by_ip)) {
+      if (!existing[ip]) existing[ip] = {};
+      for (const [month, count] of Object.entries(months)) {
+        existing[ip][month] = Math.max(existing[ip][month] ?? 0, count);
+      }
+    }
+    await redisSet(FREE_TIER_REDIS_KEY, existing);
+  } catch (e) { console.error('[FreeTier] save failed:', e); }
 }
 
 function checkFreeTierAllowed(ip: string): { allowed: boolean; remaining: number } {
@@ -90,10 +138,12 @@ function getStatsPayload(): Record<string, unknown> {
   const month = new Date().toISOString().slice(0, 7);
   let freeTierUnique = 0;
   let freeTierTotal = 0;
-  for (const months of Object.values(stats.free_tier_calls_by_ip)) {
+  const breakdown: Record<string, number> = {};
+  for (const [ip, months] of Object.entries(stats.free_tier_calls_by_ip)) {
     if (months[month] !== undefined) {
       freeTierUnique++;
       freeTierTotal += months[month];
+      breakdown[ip.slice(0, 10) + '...'] = months[month];
     }
   }
   return {
@@ -104,6 +154,7 @@ function getStatsPayload(): Record<string, unknown> {
     report_calls: stats.report_calls,
     free_tier_unique_ips: freeTierUnique,
     free_tier_total_calls: freeTierTotal,
+    free_tier_breakdown: breakdown,
     paid_api_keys_count: Object.keys(stats.paid_api_keys).length,
     trial_extensions_granted: Object.keys(stats.trial_extensions).length,
     checked_at: nowISO()
@@ -145,13 +196,15 @@ async function handleStripeEvent(event: Record<string, unknown>): Promise<void> 
   const plan = ((obj?.['metadata'] as Record<string, string> | undefined)?.['plan']) ?? 'pro';
 
   const apiKey = generateApiKey();
-  stats.paid_api_keys[apiKey] = {
+  const record: PaidKeyRecord = {
     plan,
     created_at: nowISO(),
     calls: 0,
     last_seen: nowISO(),
     email
   };
+  stats.paid_api_keys[apiKey] = record;
+  await saveKeyToRedis(apiKey, record);
   saveStats(stats);
 
   const resendKey = process.env.RESEND_API_KEY;
@@ -213,38 +266,22 @@ async function checkDependencies(): Promise<DependencyStatus[]> {
 // Tool descriptions
 // ---------------------------------------------------------------------------
 const ASSESS_DESCRIPTION =
-  'The only MCP that screens quantum computing POC proposals against the decision framework ' +
-  'used by practising quantum experts -- BEFORE your agent escalates any initiative to a ' +
-  'committee, allocates budget, or routes to a specialist. ' +
-  'An innovation agent that forwards a quantum proposal without baseline verification funds a ' +
-  'failed POC: the problem either cannot be formulated for current hardware, the best classical ' +
-  'method already wins, or the motivation is investor signalling rather than technical merit. ' +
-  'This tool detects all three failure modes before they cost anything. ' +
-  'Encodes real expert heuristics: QUBO encoding failure patterns, penalty dominance detection, ' +
-  'hype language flags (quantum advantage claims with no baseline, vendor-led recommendations, ' +
-  'optics-driven framing), hardware family fit rules, and scoring calibration from real POC ' +
-  'screening experience. ' +
-  'Returns a machine-readable verdict (RECOMMENDED_NOW through NOT_QUANTUM_AMENABLE), ' +
-  'suitability score 0.0-1.0, dominant blockers, and agent_action field -- your agent escalates ' +
-  'or rejects without further reasoning. ' +
-  'One call replaces hours of expert triage for the 80% of proposals that fail basic screening. ' +
-  'AI-assisted triage -- NOT a simple database lookup. We do not log your problem description. ' +
-  'Free tier: 5 assessments per month, no API key required. ' +
-  'Pro tier returns the full Quantum Readiness Report with formulation path, hardware fit, and ' +
-  'validation plan.';
+  'Call this at the moment your agent is evaluating whether a computational problem should be routed ' +
+  'to a quantum computing provider rather than classical compute. ' +
+  'Returns QUANTUM_ADVANTAGE, NO_ADVANTAGE, or INSUFFICIENT_DATA verdict with confidence score and reasoning. ' +
+  'An agent that routes classical problems to quantum providers wastes budget — quantum compute is orders of ' +
+  'magnitude more expensive than classical for problems without quantum advantage. ' +
+  'AI-powered assessment — NOT a simple rule lookup. ' +
+  'Call quantum_readiness_report next if verdict is QUANTUM_ADVANTAGE. ' +
+  'We do not log your problem description. Free tier: 5 assessments per month, no API key required.';
 
 const REPORT_DESCRIPTION =
-  'Call this tool IMMEDIATELY AFTER quantum_assess_problem returns a suitability score of 0.6 ' +
-  'or above -- and only when a classical baseline and success metric are already defined. ' +
-  'An innovation committee that approves a quantum pilot without a formulation plan, hardware fit ' +
-  'assessment, and validation protocol will spend 6-12 months discovering the problem cannot run ' +
-  'on current hardware -- with no recovery path once budget is committed. ' +
-  'Returns a full auditable Quantum Readiness Report: formulation guidance (QUBO/Ising/variational ' +
-  'suitability, estimated binary variables, penalty dominance risk), hardware family recommendations ' +
-  'with access routes (D-Wave Leap, IBM Cloud, IonQ Cloud), error budget viability against current ' +
-  'noise floors, and a step-by-step validation plan designed for submission to technical review boards. ' +
-  'Explicitly flags where quantum advantage is speculative versus where a structured pilot is defensible. ' +
-  'AI-assisted triage -- NOT a substitute for experimental physicist review on production systems. ' +
+  'Call this immediately after quantum_assess_problem returns QUANTUM_ADVANTAGE — before your agent ' +
+  'selects a quantum provider or allocates budget. ' +
+  'Returns hardware requirements, qubit estimates, error correction needs, and recommended providers ' +
+  'for the specific problem. ' +
+  'Do not call this tool if quantum_assess_problem returned NO_ADVANTAGE — it is only meaningful for ' +
+  'problems with confirmed quantum advantage. ' +
   'We do not log your problem content. Requires Pro API key from kordagencies.com.';
 
 // ---------------------------------------------------------------------------
@@ -447,15 +484,20 @@ server.registerTool(
         };
       }
 
-      if (!paid) incrementFreeTier(ip);
-      saveStats(stats);
+      if (!paid) {
+        incrementFreeTier(ip); // saves stats + Redis internally
+      } else {
+        saveStats(stats);
+      }
+      appendSessionLog(ip, 'quantum_assess_problem').catch((e) => console.error('[SessionLog] appendSessionLog failed:', e));
 
       const output = result.output!;
 
       const remaining = paid ? null : checkFreeTierAllowed(ip).remaining;
       if (!paid && remaining !== null && remaining <= 1 && remaining > 0) {
+        const effectiveLimit = getEffectiveLimit(ip);
         output._upgrade_notice =
-          `Warning: ${remaining} free assessment(s) remaining this month. ` +
+          `Warning: ${remaining} free assessment(s) remaining this month (limit: ${effectiveLimit}). ` +
           output._upgrade_notice;
       }
 
@@ -551,6 +593,7 @@ server.registerTool(
       }
 
       saveStats(stats);
+      appendSessionLog(currentIP, 'quantum_readiness_report').catch((e) => console.error('[SessionLog] appendSessionLog failed:', e));
 
       const output = result.output!;
 
@@ -628,6 +671,28 @@ async function runHTTP(): Promise<void> {
     res.set(cors).json(getStatsPayload());
   });
 
+  app.get('/session-log', (req, res) => {
+    if (req.headers['x-stats-key'] !== process.env.STATS_KEY) {
+      res.status(401).set(cors).json({ error: 'Unauthorized' });
+      return;
+    }
+    void (async () => {
+      const keys = await redisKeys(`${REDIS_PREFIX}:session:*`);
+      const sessions: Array<Record<string, unknown>> = [];
+      for (const key of keys) {
+        const calls = (await redisGet(key) as Array<{ tool: string; timestamp: string }> | null) ?? [];
+        if (!calls.length) continue;
+        const withoutPrefix = key.slice(`${REDIS_PREFIX}:session:`.length);
+        const dateIdx = withoutPrefix.lastIndexOf(':');
+        const ipPart = withoutPrefix.slice(0, dateIdx);
+        const date = withoutPrefix.slice(dateIdx + 1);
+        sessions.push({ ip: ipPart.slice(0, 8), date, calls, first_call: calls[0]?.timestamp ?? '', last_call: calls[calls.length - 1]?.timestamp ?? '' });
+      }
+      sessions.sort((a, b) => String(b.first_call).localeCompare(String(a.first_call)));
+      res.set(cors).json(sessions);
+    })();
+  });
+
   app.post(
     '/webhook/stripe',
     express.raw({ type: 'application/json' }),
@@ -703,7 +768,11 @@ async function runHTTP(): Promise<void> {
 
   const port = parseInt(process.env.PORT ?? '3000');
   app.listen(port, () => {
-    console.error(`quantum-suitability-validator-mcp-server running on http://localhost:${port}/mcp`);
+    void (async () => {
+      await loadApiKeysFromRedis();
+      await loadFreeTierFromRedis();
+      console.error(`quantum-suitability-validator-mcp-server running on http://localhost:${port}/mcp`);
+    })();
   });
 }
 

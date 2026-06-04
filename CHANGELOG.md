@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.4] - 2026-06-04
+
+### Added
+- `src/services/redis.ts` — Upstash Redis helpers (redisGet, redisSet, redisExpire, redisKeys, appendSessionLog) with prefix `quantum`
+- Free tier Redis persistence: `loadFreeTierFromRedis` / `saveFreeTierToRedis` with Math.max merge
+- API key Redis persistence: `saveKeyToRedis` / `loadApiKeysFromRedis` — first durable persistence for paid keys
+- `appendSessionLog` with 24h TTL; `/session-log` endpoint (requires x-stats-key)
+- `free_tier_breakdown` per-IP object on `/stats` response for current month
+- `getEffectiveLimit(ip)` — accounts for trial extensions in stats.trial_extensions
+
+### Changed
+- `quantum_assess_problem` and `quantum_readiness_report` descriptions rewritten for orchestral agent runtime selection
+- `VERSION` bumped to `1.0.4`
+
 ## [1.0.3] - 2026-06-02
 
 ### Fixed
