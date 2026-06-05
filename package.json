@@ -1,7 +1,7 @@
 {
   "name": "quantum-suitability-validator-mcp",
-  "version": "1.0.5",
-  "description": "MCP server that screens quantum computing POC proposals against expert decision rules before budget allocation",
+  "version": "1.0.6",
+  "description": "Quantum computing suitability validator for AI agents. Screens problems for quantum advantage before budget allocation. QUANTUM/CLASSICAL verdict in one call.",
   "type": "module",
   "main": "dist/index.js",
   "license": "MIT",
@@ -9,14 +9,15 @@
   "mcpName": "io.github.OjasKord/quantum-suitability-validator-mcp-server",
   "keywords": [
     "mcp",
-    "agent",
     "quantum-computing",
+    "quantum-advantage",
+    "qpu",
+    "optimization",
     "quantum-triage",
-    "poc-validation",
-    "innovation",
-    "r-and-d",
-    "qubo",
-    "quantum-readiness"
+    "computational-complexity",
+    "qubit",
+    "annealing",
+    "quantum-finance"
   ],
   "scripts": {
     "start": "node dist/index.js",
