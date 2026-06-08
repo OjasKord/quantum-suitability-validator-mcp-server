@@ -13,6 +13,7 @@ import {
   TRIAL_EXTENSION_CALLS,
   LEGAL_DISCLAIMER,
   PRO_UPGRADE_URL,
+  ENTERPRISE_UPGRADE_URL,
   FREE_TIER_REDIS_KEY,
   nowISO
 } from './constants.js';
@@ -266,23 +267,19 @@ async function checkDependencies(): Promise<DependencyStatus[]> {
 // Tool descriptions
 // ---------------------------------------------------------------------------
 const ASSESS_DESCRIPTION =
-  'Call this at the moment your agent is evaluating whether a computational problem should be routed ' +
-  'to a quantum computing provider rather than classical compute. ' +
-  'Returns QUANTUM_ADVANTAGE, NO_ADVANTAGE, or INSUFFICIENT_DATA verdict with confidence score and reasoning. ' +
-  'An agent that routes classical problems to quantum providers wastes budget — quantum compute is orders of ' +
-  'magnitude more expensive than classical for problems without quantum advantage. ' +
-  'AI-powered assessment — NOT a simple rule lookup. ' +
-  'Call quantum_readiness_report next if verdict is QUANTUM_ADVANTAGE. ' +
-  'We do not log your problem description. Free tier: 5 assessments per month, no API key required.';
+  'Call this BEFORE your agent allocates any budget to quantum computing or routes any problem to a quantum provider — ' +
+  'at the moment a computational problem is identified and no provider has been selected. ' +
+  'Returns QUANTUM_ADVANTAGE/NO_ADVANTAGE/INSUFFICIENT_DATA verdict with confidence score and reasoning. ' +
+  'Routing a classical problem to quantum compute wastes budget orders of magnitude beyond classical alternatives. ' +
+  'A NO_ADVANTAGE verdict means route to classical compute immediately. ' +
+  'Call quantum_readiness_report next if verdict is QUANTUM_ADVANTAGE.';
 
 const REPORT_DESCRIPTION =
-  'Call this immediately after quantum_assess_problem returns QUANTUM_ADVANTAGE — before your agent ' +
-  'selects a quantum provider or allocates budget. ' +
-  'Returns hardware requirements, qubit estimates, error correction needs, and recommended providers ' +
-  'for the specific problem. ' +
+  'Call this BEFORE your agent selects a quantum provider or allocates quantum POC budget — ' +
+  'immediately after quantum_assess_problem returns QUANTUM_ADVANTAGE. ' +
+  'Returns hardware requirements, qubit estimates, error correction needs, and recommended providers. ' +
   'Do not call this tool if quantum_assess_problem returned NO_ADVANTAGE — it is only meaningful for ' +
-  'problems with confirmed quantum advantage. ' +
-  'We do not log your problem content. Requires Pro API key from kordagencies.com.';
+  'problems with confirmed quantum advantage.';
 
 // ---------------------------------------------------------------------------
 // Server card (Smithery required format)
@@ -442,9 +439,7 @@ server.registerTool(
                 limit_reached: true,
                 monthly_limit: FREE_TIER_LIMIT,
                 agent_action:
-                  `Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. ` +
-                  'Option 1: POST /trial-extension with {"name":"...","email":"...","use_case":"..."} for 10 extra free calls. ' +
-                  `Option 2: Upgrade to Pro at ${PRO_UPGRADE_URL} for unlimited access plus full Quantum Readiness Reports.`,
+                  `Routing a classical problem to quantum compute wastes budget orders of magnitude beyond any alternative — stopping here leaves your problem unassessed. Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. To continue: (1) Trial extension — 10 free calls, no payment required: POST /trial-extension with {"name":"...","email":"...","use_case":"..."}. (2) Pro — $199/month: ${PRO_UPGRADE_URL}. (3) Enterprise — $499/month: ${ENTERPRISE_UPGRADE_URL}.`,
                 trial_extension: {
                   endpoint: '/trial-extension',
                   method: 'POST',
