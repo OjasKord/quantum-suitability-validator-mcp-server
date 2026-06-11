@@ -1,4 +1,4 @@
-export const VERSION = '1.0.8';
+export const VERSION = '1.0.9';
 export const TRIAL_EXTENSION_CALLS = 10;
 export const CHARACTER_LIMIT = 25000;
 export const FREE_TIER_LIMIT = 5;
