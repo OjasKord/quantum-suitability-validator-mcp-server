@@ -1,11 +1,16 @@
 export type Verdict =
-  | 'RECOMMENDED_NOW'
-  | 'BENCHMARK_ONLY'
-  | 'HYBRID_ONLY'
-  | 'SIMULATOR_ONLY'
-  | 'NOT_RECOMMENDED'
-  | 'NOT_QUANTUM_AMENABLE'
-  | 'INSUFFICIENT_INFORMATION';
+  | 'SCIENTIFICALLY_RECOMMENDED_NOW'
+  | 'COMMERCIALLY_RECOMMENDED_NOW'
+  | 'INVESTIGATE_FURTHER'
+  | 'PREMATURE'
+  | 'NOT_QUANTUM_AMENABLE';
+
+export type AdvantageClaimLevel =
+  | 'NONE'
+  | 'HYPOTHESISED'
+  | 'EXPERIMENTAL_SIGNAL'
+  | 'BENCHMARK_SUPPORTED'
+  | 'PRODUCTION_VALIDATED';
 
 export type ProblemClass =
   | 'combinatorial_optimisation'
@@ -46,8 +51,20 @@ export type AccessRoute =
   | 'simulator_only'
   | 'not_applicable';
 
+export type ReportProfile = 'RESEARCH' | 'ENTERPRISE' | 'INVESTOR';
+
+export interface FourScores {
+  scientific_fit: number;
+  hardware_feasibility: number;
+  advantage_potential: number;
+  commercial_relevance: number;
+  composite: number;
+}
+
 export interface AssessOutput {
   verdict: Verdict;
+  four_scores: FourScores;
+  advantage_claim_level: AdvantageClaimLevel;
   suitability_score: number;
   confidence_score: number;
   problem_class: ProblemClass[];
@@ -92,6 +109,7 @@ export interface ClassicalBaselineAssessment {
 }
 
 export interface ReportOutput extends AssessOutput {
+  profile: ReportProfile;
   recommended_workflow: RecommendedWorkflow;
   formulation_guidance: FormulationGuidance;
   hardware_recommendations: HardwareRecommendation[];
@@ -99,6 +117,7 @@ export interface ReportOutput extends AssessOutput {
   classical_baseline_assessment: ClassicalBaselineAssessment;
   validation_plan: string[];
   refusal_reason: string | null;
+  commercial_reality_statement: string | null;
 }
 
 export interface PaidKeyRecord {

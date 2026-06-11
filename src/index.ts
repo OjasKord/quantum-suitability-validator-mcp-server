@@ -283,19 +283,21 @@ async function checkDependencies(): Promise<DependencyStatus[]> {
 // Tool descriptions
 // ---------------------------------------------------------------------------
 const ASSESS_DESCRIPTION =
-  'Call this BEFORE your agent allocates any budget to quantum computing or routes any problem to a quantum provider — ' +
+  'Call this BEFORE your agent escalates any quantum computing initiative to a committee, allocates budget, or routes to a quantum specialist — ' +
   'at the moment a computational problem is identified and no provider has been selected. ' +
-  'Returns QUANTUM_ADVANTAGE/NO_ADVANTAGE/INSUFFICIENT_DATA verdict with confidence score and reasoning. ' +
-  'Routing a classical problem to quantum compute wastes budget orders of magnitude beyond classical alternatives. ' +
-  'A NO_ADVANTAGE verdict means route to classical compute immediately. ' +
-  'Call quantum_readiness_report next if verdict is QUANTUM_ADVANTAGE.';
+  'Returns four independent scores (scientific fit, hardware feasibility, advantage potential, commercial relevance) plus composite verdict. ' +
+  'The free tool answers: "Is this worth further quantum investigation?" not "Has quantum advantage been demonstrated?" — ' +
+  'a hydrogen-chain VQE has high scientific suitability even if commercial advantage is unproven. ' +
+  'A NOT_QUANTUM_AMENABLE or PREMATURE verdict means route to classical compute immediately. ' +
+  'Call quantum_readiness_report next if verdict is SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW.';
 
 const REPORT_DESCRIPTION =
   'Call this BEFORE your agent selects a quantum provider or allocates quantum POC budget — ' +
-  'immediately after quantum_assess_problem returns QUANTUM_ADVANTAGE. ' +
-  'Returns hardware requirements, qubit estimates, error correction needs, and recommended providers. ' +
-  'Do not call this tool if quantum_assess_problem returned NO_ADVANTAGE — it is only meaningful for ' +
-  'problems with confirmed quantum advantage.';
+  'immediately after quantum_assess_problem returns SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW. ' +
+  'Pass profile=RESEARCH for research/academic contexts, ENTERPRISE for commercial deployment evaluation, INVESTOR for startup/portfolio assessment. ' +
+  'Profile determines how the four scores are weighted — the same problem legitimately requires different verdicts by profile. ' +
+  'Returns hardware requirements, qubit estimates, error correction needs, recommended providers, and advantage_claim_level. ' +
+  'Do not call this tool if quantum_assess_problem returned PREMATURE or NOT_QUANTUM_AMENABLE.';
 
 // ---------------------------------------------------------------------------
 // Server card (Smithery required format)
@@ -366,6 +368,11 @@ function getServerCard(): ServerCard {
               maxLength: 5000,
               description: 'Description of the problem proposed for quantum computing. Minimum 20 characters.'
             },
+            profile: {
+              type: 'string',
+              enum: ['RESEARCH', 'ENTERPRISE', 'INVESTOR'],
+              description: 'Audience profile: RESEARCH (scientific weights), ENTERPRISE (commercial weights), INVESTOR (advantage evidence weights).'
+            },
             industry: {
               type: 'string',
               maxLength: 100,
@@ -406,7 +413,7 @@ function getServerCard(): ServerCard {
               description: "Output format: 'json' (default) or 'markdown'"
             }
           },
-          required: ['problem_description', 'current_classical_method', 'constraints_description'],
+          required: ['problem_description', 'profile', 'current_classical_method', 'constraints_description'],
           additionalProperties: false
         }
       }
@@ -461,7 +468,7 @@ server.registerTool(
                 limit_reached: true,
                 monthly_limit: FREE_TIER_LIMIT,
                 agent_action:
-                  `Routing a classical problem to quantum compute wastes budget orders of magnitude beyond any alternative — stopping here leaves your problem unassessed. Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. To continue: (1) Trial extension — 10 free calls, no payment required: POST /trial-extension with {"name":"...","email":"...","use_case":"..."}. (2) Pro — $199/month: ${PRO_UPGRADE_URL}. (3) Enterprise — $499/month: ${ENTERPRISE_UPGRADE_URL}.`,
+                  `Routing a classical problem to quantum compute wastes budget orders of magnitude beyond classical alternatives — stopping here leaves your problem unassessed. Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. To continue: (1) Trial extension — 10 free calls, no payment required: POST /trial-extension with {"name":"...","email":"...","use_case":"..."}. (2) Pro — $199/month: ${PRO_UPGRADE_URL}. (3) Enterprise — $499/month: ${ENTERPRISE_UPGRADE_URL}.`,
                 trial_extension: {
                   endpoint: '/trial-extension',
                   method: 'POST',

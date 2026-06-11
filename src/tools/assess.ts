@@ -1,11 +1,18 @@
 import type { AssessInput } from '../schemas/assess.js';
-import type { AssessOutput } from '../types.js';
+import type { AssessOutput, FourScores, AdvantageClaimLevel } from '../types.js';
 import { callClaude, parseClaudeJSON } from '../services/claude-client.js';
 import { nowISO, LEGAL_DISCLAIMER, PRO_UPGRADE_URL } from '../constants.js';
 
 interface ClaudeAssessResponse {
   verdict: string;
-  suitability_score: number;
+  four_scores: {
+    scientific_fit: number;
+    hardware_feasibility: number;
+    advantage_potential: number;
+    commercial_relevance: number;
+    composite: number;
+  };
+  advantage_claim_level: string;
   confidence_score: number;
   problem_class: string[];
   dominant_blockers: string[];
@@ -17,7 +24,7 @@ interface ClaudeAssessResponse {
 
 function buildAssessPrompt(params: AssessInput): string {
   return [
-    'Assess the following quantum computing initiative proposal.',
+    'Assess the following quantum computing initiative proposal using the four-dimensional scoring framework.',
     '',
     `PROBLEM DESCRIPTION: ${params.problem_description}`,
     `INDUSTRY: ${params.industry ?? 'not specified'}`,
@@ -28,8 +35,15 @@ function buildAssessPrompt(params: AssessInput): string {
     '',
     'Return ONLY a JSON object. No markdown. No explanation. Match this structure exactly:',
     '{',
-    '  "verdict": "<RECOMMENDED_NOW|BENCHMARK_ONLY|HYBRID_ONLY|SIMULATOR_ONLY|NOT_RECOMMENDED|NOT_QUANTUM_AMENABLE|INSUFFICIENT_INFORMATION>",',
-    '  "suitability_score": <float 0.0-1.0>,',
+    '  "verdict": "<SCIENTIFICALLY_RECOMMENDED_NOW|COMMERCIALLY_RECOMMENDED_NOW|INVESTIGATE_FURTHER|PREMATURE|NOT_QUANTUM_AMENABLE>",',
+    '  "four_scores": {',
+    '    "scientific_fit": <float 0.0-1.0, 40% weight — quantum structural amenability>,',
+    '    "hardware_feasibility": <float 0.0-1.0, 25% weight — runnable on current NISQ hardware>,',
+    '    "advantage_potential": <float 0.0-1.0, 25% weight — evidence quantum beats best classical>,',
+    '    "commercial_relevance": <float 0.0-1.0, 10% weight — business case today>,',
+    '    "composite": <0.40*scientific_fit + 0.25*hardware_feasibility + 0.25*advantage_potential + 0.10*commercial_relevance>',
+    '  },',
+    '  "advantage_claim_level": "<NONE|HYPOTHESISED|EXPERIMENTAL_SIGNAL|BENCHMARK_SUPPORTED|PRODUCTION_VALIDATED>",',
     '  "confidence_score": <float 0.0-1.0>,',
     '  "problem_class": ["<combinatorial_optimisation|portfolio_optimisation|molecular_simulation|ml_kernel|cryptography_pqc|sampling_monte_carlo|other>"],',
     '  "dominant_blockers": ["<string>"],',
@@ -46,6 +60,16 @@ function clamp(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
+function clampScores(raw: ClaudeAssessResponse['four_scores'] | undefined): FourScores {
+  const s = raw ?? { scientific_fit: 0, hardware_feasibility: 0, advantage_potential: 0, commercial_relevance: 0, composite: 0 };
+  const sf = clamp(s.scientific_fit);
+  const hf = clamp(s.hardware_feasibility);
+  const ap = clamp(s.advantage_potential);
+  const cr = clamp(s.commercial_relevance);
+  const composite = clamp(0.40 * sf + 0.25 * hf + 0.25 * ap + 0.10 * cr);
+  return { scientific_fit: sf, hardware_feasibility: hf, advantage_potential: ap, commercial_relevance: cr, composite };
+}
+
 export async function runAssess(
   params: AssessInput
 ): Promise<{ output?: AssessOutput; error?: Record<string, unknown> }> {
@@ -53,11 +77,13 @@ export async function runAssess(
     const raw = await callClaude(buildAssessPrompt(params), 2000);
     const parsed = parseClaudeJSON<ClaudeAssessResponse>(raw);
 
-    const isInsufficient = parsed.verdict === 'INSUFFICIENT_INFORMATION';
+    const fourScores = clampScores(parsed.four_scores);
 
     const output: AssessOutput = {
       verdict: parsed.verdict as AssessOutput['verdict'],
-      suitability_score: clamp(parsed.suitability_score),
+      four_scores: fourScores,
+      advantage_claim_level: (parsed.advantage_claim_level ?? 'NONE') as AdvantageClaimLevel,
+      suitability_score: fourScores.composite,
       confidence_score: clamp(parsed.confidence_score),
       problem_class: (parsed.problem_class ?? []) as AssessOutput['problem_class'],
       dominant_blockers: parsed.dominant_blockers ?? [],
@@ -67,15 +93,16 @@ export async function runAssess(
         'What is your classical baseline today, and what metric must improve for this to matter?',
       next_best_action: parsed.next_best_action ?? '',
       agent_action: parsed.agent_action as AssessOutput['agent_action'],
-      analysis_type: 'AI-assisted quantum triage -- NOT a substitute for experimental physicist review',
+      analysis_type: 'AI-assisted quantum triage — NOT a substitute for experimental physicist review',
       checked_at: nowISO(),
       _disclaimer: LEGAL_DISCLAIMER
     };
 
-    if (!isInsufficient) {
+    const isNotAmenable = parsed.verdict === 'NOT_QUANTUM_AMENABLE' || parsed.verdict === 'PREMATURE';
+    if (!isNotAmenable) {
       output._upgrade_notice =
-        'Verdict delivered. The full Quantum Readiness Report -- formulation path, hardware family fit, ' +
-        'error budget viability, and validation plan -- is Pro only. ' +
+        'Verdict delivered. The full Quantum Readiness Report — formulation path, hardware family fit, ' +
+        'error budget viability, and validation plan — is Pro only. ' +
         `Upgrade at kordagencies.com.`;
     }
 
@@ -96,10 +123,21 @@ export async function runAssess(
 }
 
 export function formatAssessMarkdown(output: AssessOutput): string {
+  const fs = output.four_scores;
   const lines = [
     '## Quantum Suitability Assessment',
     `**Verdict:** ${output.verdict}`,
-    `**Suitability Score:** ${output.suitability_score.toFixed(2)}`,
+    `**Advantage Claim Level:** ${output.advantage_claim_level}`,
+    '',
+    '### Four-Dimensional Scores',
+    `| Dimension | Score | Weight |`,
+    `|---|---|---|`,
+    `| Scientific Fit | ${fs.scientific_fit.toFixed(2)} | 40% |`,
+    `| Hardware Feasibility | ${fs.hardware_feasibility.toFixed(2)} | 25% |`,
+    `| Advantage Potential | ${fs.advantage_potential.toFixed(2)} | 25% |`,
+    `| Commercial Relevance | ${fs.commercial_relevance.toFixed(2)} | 10% |`,
+    `| **Composite** | **${fs.composite.toFixed(2)}** | |`,
+    '',
     `**Confidence Score:** ${output.confidence_score.toFixed(2)}`,
     `**Agent Action:** ${output.agent_action}`,
     '',

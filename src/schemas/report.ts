@@ -8,6 +8,13 @@ export const ReportInputSchema = z.object({
       'Description of the problem proposed for quantum computing. ' +
       'Minimum 20 characters. Include what it computes and what a win looks like.'
     ),
+  profile: z.enum(['RESEARCH', 'ENTERPRISE', 'INVESTOR'])
+    .describe(
+      'Audience profile that determines scoring weights. ' +
+      'RESEARCH: scientific fit 45%, hardware feasibility 35%, advantage evidence 15%, commercial 5%. ' +
+      'ENTERPRISE: commercial 35%, advantage evidence 35%, hardware feasibility 20%, scientific fit 10%. ' +
+      'INVESTOR: advantage evidence 40%, commercial 30%, hardware feasibility 20%, scientific fit 10%.'
+    ),
   industry: z.string()
     .max(100, 'Industry must not exceed 100 characters')
     .optional()
@@ -27,7 +34,7 @@ export const ReportInputSchema = z.object({
     .min(5, 'Constraints description must be at least 5 characters')
     .max(1000, 'Constraints description must not exceed 1000 characters')
     .describe(
-      'REQUIRED. Description of problem constraints -- equality constraints, ' +
+      'REQUIRED. Description of problem constraints — equality constraints, ' +
       'cardinality limits, if/then rules, etc. Used for QUBO formulation risk analysis.'
     ),
   variables_estimate: z.number()
@@ -40,7 +47,7 @@ export const ReportInputSchema = z.object({
     .max(500, 'Success metric must not exceed 500 characters')
     .optional()
     .describe(
-      'Measurable success criterion -- what improvement vs baseline makes this worth a pilot ' +
+      'Measurable success criterion — what improvement vs baseline makes this worth a pilot ' +
       '(e.g. "10% cost reduction vs OR-Tools baseline on 200-node benchmark")'
     ),
   response_format: z.enum(['markdown', 'json'])

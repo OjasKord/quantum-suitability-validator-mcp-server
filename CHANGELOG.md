@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.0.10] - 2026-06-11
+- feat: four-dimensional scoring, RESEARCH/ENTERPRISE/INVESTOR profiles, advantage_claim_level field, revised verdict structure
+
 ## [1.0.9] - 2026-06-11
 - fix: bump version past existing npm publish (1.0.8 already on registry)
 
