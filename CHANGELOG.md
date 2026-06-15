@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.0.11] - 2026-06-15
+- feat: add hold_reason, retry_after, escalation_path to INVESTIGATE_FURTHER responses in quantum_assess_suitability
+
 ## [1.0.10] - 2026-06-11
 - feat: four-dimensional scoring, RESEARCH/ENTERPRISE/INVESTOR profiles, advantage_claim_level field, revised verdict structure
 

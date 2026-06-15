@@ -75,6 +75,9 @@ export interface AssessOutput {
   agent_action: AgentAction;
   analysis_type: string;
   checked_at: string;
+  hold_reason?: string;
+  retry_after?: number | null;
+  escalation_path?: string | null;
   _upgrade_notice?: string;
   _disclaimer: string;
 }

@@ -98,6 +98,12 @@ export async function runAssess(
       _disclaimer: LEGAL_DISCLAIMER
     };
 
+    if (parsed.verdict === 'INVESTIGATE_FURTHER') {
+      output.hold_reason = parsed.dominant_blockers?.[0] || 'Quantum advantage for this problem requires further experimental validation before committing resources';
+      output.retry_after = null;
+      output.escalation_path = 'Define classical baseline performance metrics first, then consult a quantum computing specialist to evaluate feasibility before committing to implementation';
+    }
+
     const isNotAmenable = parsed.verdict === 'NOT_QUANTUM_AMENABLE' || parsed.verdict === 'PREMATURE';
     if (!isNotAmenable) {
       output._upgrade_notice =
