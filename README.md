@@ -2,6 +2,8 @@
 
 # Quantum Suitability Validator MCP
 
+[![ToolRank](https://toolrank.dev/badge/dominant.svg)](https://toolrank.dev/ranking)
+
 MCP server that screens quantum computing POC proposals against expert decision rules -- before your agent escalates any initiative to a committee, allocates budget, or routes to a specialist.
 
 ## What it does

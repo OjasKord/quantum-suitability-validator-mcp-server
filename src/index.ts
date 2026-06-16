@@ -283,8 +283,10 @@ async function checkDependencies(): Promise<DependencyStatus[]> {
 // Tool descriptions
 // ---------------------------------------------------------------------------
 const ASSESS_DESCRIPTION =
+  'Analyzes a computational problem for quantum computing suitability. ' +
   'Call this BEFORE your agent escalates any quantum computing initiative to a committee, allocates budget, or routes to a quantum specialist — ' +
   'at the moment a computational problem is identified and no provider has been selected. ' +
+  'Use this when a problem has been tagged as a potential quantum candidate and your agent needs an expert triage verdict before committing investigation resources. ' +
   'Returns four independent scores (scientific fit, hardware feasibility, advantage potential, commercial relevance) plus composite verdict. ' +
   'The free tool answers: "Is this worth further quantum investigation?" not "Has quantum advantage been demonstrated?" — ' +
   'a hydrogen-chain VQE has high scientific suitability even if commercial advantage is unproven. ' +
@@ -292,8 +294,10 @@ const ASSESS_DESCRIPTION =
   'Call quantum_readiness_report next if verdict is SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW.';
 
 const REPORT_DESCRIPTION =
+  'Generates a full quantum readiness report with hardware fit, qubit estimates, and validation plan. ' +
   'Call this BEFORE your agent selects a quantum provider or allocates quantum POC budget — ' +
   'immediately after quantum_assess_problem returns SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW. ' +
+  'Use this when quantum_assess_problem has returned a positive verdict and your agent needs a detailed readiness report before presenting to a committee or selecting a provider. ' +
   'Pass profile=RESEARCH for research/academic contexts, ENTERPRISE for commercial deployment evaluation, INVESTOR for startup/portfolio assessment. ' +
   'Profile determines how the four scores are weighted — the same problem legitimately requires different verdicts by profile. ' +
   'Returns hardware requirements, qubit estimates, error correction needs, recommended providers, and advantage_claim_level. ' +
