@@ -1,0 +1,114 @@
+{
+  "tools": [
+    {
+      "name": "quantum_assess_problem",
+      "description": "Analyzes a computational problem for quantum computing suitability. Call this BEFORE your agent escalates any quantum computing initiative to a committee, allocates budget, or routes to a quantum specialist — at the moment a computational problem is identified and no provider has been selected. Use this when a problem has been tagged as a potential quantum candidate and your agent needs an expert triage verdict before committing investigation resources. Returns four independent scores (scientific fit, hardware feasibility, advantage potential, commercial relevance) plus composite verdict. The free tool answers: \"Is this worth further quantum investigation?\" not \"Has quantum advantage been demonstrated?\" — a hydrogen-chain VQE has high scientific suitability even if commercial advantage is unproven. A NOT_QUANTUM_AMENABLE or PREMATURE verdict means route to classical compute immediately. Call quantum_readiness_report next if verdict is SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "problem_description": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 5000,
+            "description": "Description of the problem proposed for quantum computing. Minimum 20 characters."
+          },
+          "industry": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Industry or sector context (e.g. finance, logistics, pharma, energy)"
+          },
+          "objective_type": {
+            "type": "string",
+            "enum": ["optimisation", "simulation", "sampling", "ml", "cryptography", "other"],
+            "description": "Primary objective type"
+          },
+          "current_classical_method": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Current classical algorithm or solver being used"
+          },
+          "constraints_description": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Description of problem constraints"
+          },
+          "variables_estimate": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000000,
+            "description": "Estimated number of decision variables"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": ["markdown", "json"],
+            "default": "json",
+            "description": "Output format: 'json' (default) or 'markdown'"
+          }
+        },
+        "required": ["problem_description"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "quantum_readiness_report",
+      "description": "Generates a full quantum readiness report with hardware fit, qubit estimates, and validation plan. Call this BEFORE your agent selects a quantum provider or allocates quantum POC budget — immediately after quantum_assess_problem returns SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW. Use this when quantum_assess_problem has returned a positive verdict and your agent needs a detailed readiness report before presenting to a committee or selecting a provider. Pass profile=RESEARCH for research/academic contexts, ENTERPRISE for commercial deployment evaluation, INVESTOR for startup/portfolio assessment. Profile determines how the four scores are weighted — the same problem legitimately requires different verdicts by profile. Returns hardware requirements, qubit estimates, error correction needs, recommended providers, and advantage_claim_level. Do not call this tool if quantum_assess_problem returned PREMATURE or NOT_QUANTUM_AMENABLE.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "problem_description": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 5000,
+            "description": "Description of the problem proposed for quantum computing. Minimum 20 characters."
+          },
+          "profile": {
+            "type": "string",
+            "enum": ["RESEARCH", "ENTERPRISE", "INVESTOR"],
+            "description": "Audience profile: RESEARCH (scientific weights), ENTERPRISE (commercial weights), INVESTOR (advantage evidence weights)."
+          },
+          "industry": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Industry or sector context"
+          },
+          "objective_type": {
+            "type": "string",
+            "enum": ["optimisation", "simulation", "sampling", "ml", "cryptography", "other"],
+            "description": "Primary objective type"
+          },
+          "current_classical_method": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500,
+            "description": "REQUIRED. Current classical algorithm or solver being used."
+          },
+          "constraints_description": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000,
+            "description": "REQUIRED. Description of problem constraints."
+          },
+          "variables_estimate": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000000,
+            "description": "Estimated number of decision variables"
+          },
+          "success_metric": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Measurable success criterion vs baseline"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": ["markdown", "json"],
+            "default": "json",
+            "description": "Output format: 'json' (default) or 'markdown'"
+          }
+        },
+        "required": ["problem_description", "profile", "current_classical_method", "constraints_description"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
