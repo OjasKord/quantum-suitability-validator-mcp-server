@@ -20,6 +20,7 @@ import {
 } from './constants.js';
 import type { Stats, DependencyStatus, ServerCard, PaidKeyRecord } from './types.js';
 import { REDIS_PREFIX, redisGet, redisSet, redisKeys, redisDelete, appendSessionLog } from './services/redis.js';
+import { notifyGateHit } from './services/gate-notify.js';
 import { AssessInputSchema } from './schemas/assess.js';
 import { ReportInputSchema } from './schemas/report.js';
 import { runAssess, formatAssessMarkdown } from './tools/assess.js';
@@ -509,6 +510,7 @@ server.registerTool(
     if (!paid) {
       const tierCheck = checkFreeTierAllowed(ip);
       if (!tierCheck.allowed) {
+        notifyGateHit('Quantum Suitability Validator', ip, 'quantum_assess_problem', FREE_TIER_LIMIT, PRO_UPGRADE_URL);
         return {
           isError: true,
           content: [
