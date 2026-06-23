@@ -1,4 +1,5 @@
 name: Quantum Suitability Validator MCP
+agentRole: "Quantum Suitability Specialist — equip before allocating quantum POC budget or escalating a quantum initiative"
 description: "Before routing any computational problem to a quantum provider or allocating quantum POC budget, call quantum_assess_problem. Returns four independent scores — scientific fit, hardware feasibility, advantage potential, commercial relevance — plus SCIENTIFICALLY_RECOMMENDED_NOW or COMMERCIALLY_RECOMMENDED_NOW verdict. Expert-validated scoring architecture. Free tier: 5 assessments/month. 2 focused tools. Compact schema. Minimal agent context overhead."
 categories:
   - Dev Tools
