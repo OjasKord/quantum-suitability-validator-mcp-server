@@ -43,3 +43,30 @@ export const AssessInputSchema = z.object({
 }).strict();
 
 export type AssessInput = z.infer<typeof AssessInputSchema>;
+
+export const AssessOutputSchema = z.object({
+  verdict: z.enum(['SCIENTIFICALLY_RECOMMENDED_NOW', 'COMMERCIALLY_RECOMMENDED_NOW', 'INVESTIGATE_FURTHER', 'PREMATURE', 'NOT_QUANTUM_AMENABLE']),
+  four_scores: z.object({
+    scientific_fit: z.number().min(0).max(1),
+    hardware_feasibility: z.number().min(0).max(1),
+    advantage_potential: z.number().min(0).max(1),
+    commercial_relevance: z.number().min(0).max(1),
+    composite: z.number().min(0).max(1)
+  }),
+  advantage_claim_level: z.enum(['NONE', 'HYPOTHESISED', 'EXPERIMENTAL_SIGNAL', 'BENCHMARK_SUPPORTED', 'PRODUCTION_VALIDATED']),
+  suitability_score: z.number().min(0).max(1),
+  confidence_score: z.number().min(0).max(1),
+  problem_class: z.array(z.string()),
+  dominant_blockers: z.array(z.string()),
+  hype_flags: z.array(z.string()),
+  baseline_question: z.string(),
+  next_best_action: z.string(),
+  agent_action: z.enum(['ESCALATE_TO_POC', 'ROUTE_TO_SIMULATOR', 'DEFINE_BASELINE_FIRST', 'REJECT', 'REQUEST_MORE_INFORMATION']),
+  analysis_type: z.string(),
+  checked_at: z.string(),
+  hold_reason: z.string().optional(),
+  retry_after: z.number().nullable().optional(),
+  escalation_path: z.string().nullable().optional(),
+  _upgrade_notice: z.string().optional(),
+  _disclaimer: z.string()
+});

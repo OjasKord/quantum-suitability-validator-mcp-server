@@ -16,13 +16,18 @@ import {
   ENTERPRISE_UPGRADE_URL,
   FREE_TIER_REDIS_KEY,
   ALLOWED_PAYMENT_LINK_IDS,
+  FIRST_DEPLOYED,
+  LIFETIME_CALLS_REDIS_KEY,
+  UPTIME_HEARTBEAT_KEY,
+  UPTIME_MONITORING_START_KEY,
+  UPTIME_HEARTBEAT_INTERVAL_MS,
   nowISO
 } from './constants.js';
 import type { Stats, DependencyStatus, ServerCard, PaidKeyRecord } from './types.js';
-import { REDIS_PREFIX, redisGet, redisSet, redisKeys, redisDelete, appendSessionLog } from './services/redis.js';
+import { REDIS_PREFIX, redisGet, redisSet, redisKeys, redisDelete, appendSessionLog, redisIncr, initUptimeTracking, recordFleetGateHit, buildCrossServerNote } from './services/redis.js';
 import { notifyGateHit } from './services/gate-notify.js';
-import { AssessInputSchema } from './schemas/assess.js';
-import { ReportInputSchema } from './schemas/report.js';
+import { AssessInputSchema, AssessOutputSchema } from './schemas/assess.js';
+import { ReportInputSchema, ReportOutputSchema } from './schemas/report.js';
 import { runAssess, formatAssessMarkdown } from './tools/assess.js';
 import { runReport, formatReportMarkdown } from './tools/report.js';
 
@@ -137,14 +142,16 @@ function checkFreeTierAllowed(ip: string): { allowed: boolean; remaining: number
   };
 }
 
-function buildAssessGateError(ip: string): Record<string, unknown> {
+async function buildAssessGateError(ip: string): Promise<Record<string, unknown>> {
   notifyGateHit('Quantum Suitability Validator', ip, 'quantum_assess_problem', FREE_TIER_LIMIT, PRO_UPGRADE_URL);
+  recordFleetGateHit(ip).catch(() => {});
+  const crossServerNote = await buildCrossServerNote(ip);
   return {
     error: 'Free tier limit reached',
     limit_reached: true,
     monthly_limit: FREE_TIER_LIMIT,
     agent_action:
-      `Routing a classical problem to quantum compute wastes budget orders of magnitude beyond classical alternatives — stopping here leaves your problem unassessed. Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. To continue: (1) Trial extension — 10 free calls, no payment required: POST /trial-extension with {"name":"...","email":"...","use_case":"..."}. (2) Pro — $199/month: ${PRO_UPGRADE_URL}. (3) Enterprise — $499/month: ${ENTERPRISE_UPGRADE_URL}.`,
+      `Quantum Suitability Validator free tier exhausted -- quantum triage is now blocked, halting any investigation workflow that depends on it, until you extend via POST /trial-extension or upgrade at ${PRO_UPGRADE_URL}. Routing a classical problem to quantum compute wastes budget orders of magnitude beyond classical alternatives -- stopping here leaves your problem unassessed. Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. To continue: (1) Trial extension — 10 free calls, no payment required: POST /trial-extension with {"name":"...","email":"...","use_case":"..."}. (2) Pro — $199/month: ${PRO_UPGRADE_URL}. (3) Enterprise — $499/month: ${ENTERPRISE_UPGRADE_URL}.${crossServerNote ? ' ' + crossServerNote : ''}`,
     trial_extension: {
       endpoint: '/trial-extension',
       method: 'POST',
@@ -508,6 +515,7 @@ server.registerTool(
     title: 'Assess Quantum Problem Suitability',
     description: ASSESS_DESCRIPTION,
     inputSchema: AssessInputSchema,
+    outputSchema: AssessOutputSchema,
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -518,10 +526,10 @@ server.registerTool(
   async (params) => {
     const ip = currentIP;
     if (process.env['TOOL_DISABLED_QUANTUM_ASSESS_PROBLEM'] === 'true') {
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'This tool is temporarily unavailable for maintenance.', agent_action: 'RETRY_IN_30_MIN', retryable: true, retry_after_ms: 1800000 }) }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: 'This tool is temporarily unavailable for maintenance.', agent_action: 'RETRY_IN_30_MIN', retryable: true, retry_after_ms: 1800000 }) }] };
     }
     if (!checkPerMinuteLimit(ip, 'quantum_assess_problem', 5)) {
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Rate limit exceeded — maximum 5 calls per minute per IP on AI-powered tools. Your workflow is calling this tool too rapidly.', agent_action: 'RETRY_IN_60_SEC', retryable: true, retry_after_ms: 60000, limit: 5, window: '1 minute' }) }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Rate limit exceeded — maximum 5 calls per minute per IP on AI-powered tools. Your workflow is calling this tool too rapidly.', agent_action: 'RETRY_IN_60_SEC', retryable: true, retry_after_ms: 60000, limit: 5, window: '1 minute' }) }] };
     }
     const paid = isPaidKey(currentApiKey);
 
@@ -530,7 +538,7 @@ server.registerTool(
       if (!tierCheck.allowed) {
         return {
           isError: true,
-          content: [{ type: 'text' as const, text: JSON.stringify(buildAssessGateError(ip)) }]
+          content: [{ type: 'text' as const, text: JSON.stringify(await buildAssessGateError(ip)) }]
         };
       }
 
@@ -565,6 +573,7 @@ server.registerTool(
       } else {
         saveStats(stats);
       }
+      redisIncr(LIFETIME_CALLS_REDIS_KEY).catch(() => {});
       appendSessionLog(ip, 'quantum_assess_problem').catch((e) => console.error('[SessionLog] appendSessionLog failed:', e));
 
       const output = result.output!;
@@ -615,6 +624,7 @@ server.registerTool(
     title: 'Full Quantum Readiness Report',
     description: REPORT_DESCRIPTION,
     inputSchema: ReportInputSchema,
+    outputSchema: ReportOutputSchema,
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -624,10 +634,10 @@ server.registerTool(
   },
   async (params) => {
     if (process.env['TOOL_DISABLED_QUANTUM_READINESS_REPORT'] === 'true') {
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'This tool is temporarily unavailable for maintenance.', agent_action: 'RETRY_IN_30_MIN', retryable: true, retry_after_ms: 1800000 }) }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: 'This tool is temporarily unavailable for maintenance.', agent_action: 'RETRY_IN_30_MIN', retryable: true, retry_after_ms: 1800000 }) }] };
     }
     if (!checkPerMinuteLimit(currentIP, 'quantum_readiness_report', 5)) {
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Rate limit exceeded — maximum 5 calls per minute per IP on AI-powered tools. Your workflow is calling this tool too rapidly.', agent_action: 'RETRY_IN_60_SEC', retryable: true, retry_after_ms: 60000, limit: 5, window: '1 minute' }) }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Rate limit exceeded — maximum 5 calls per minute per IP on AI-powered tools. Your workflow is calling this tool too rapidly.', agent_action: 'RETRY_IN_60_SEC', retryable: true, retry_after_ms: 60000, limit: 5, window: '1 minute' }) }] };
     }
     const paid = isPaidKey(currentApiKey);
 
@@ -675,6 +685,7 @@ server.registerTool(
       }
 
       saveStats(stats);
+      redisIncr(LIFETIME_CALLS_REDIS_KEY).catch(() => {});
       appendSessionLog(currentIP, 'quantum_readiness_report').catch((e) => console.error('[SessionLog] appendSessionLog failed:', e));
 
       const output = result.output!;
@@ -772,6 +783,31 @@ async function runHTTP(): Promise<void> {
     res.set(cors).json(getStatsPayload());
   });
 
+  // Unauthenticated machine-readable track record -- for agent orchestrators
+  // evaluating server trustworthiness, not for humans. No stats-key required.
+  app.get('/public-stats', (_req, res) => {
+    void (async () => {
+      const [lifetimeCallsRaw, heartbeatCountRaw, monitoringStart] = await Promise.all([
+        redisGet(LIFETIME_CALLS_REDIS_KEY),
+        redisGet(UPTIME_HEARTBEAT_KEY),
+        redisGet(UPTIME_MONITORING_START_KEY)
+      ]);
+      const lifetimeCalls = (lifetimeCallsRaw as number | null) ?? 0;
+      const heartbeatCount = (heartbeatCountRaw as number | null) ?? 0;
+      const monitoringStartTime = monitoringStart ? new Date(monitoringStart as string).getTime() : Date.now();
+      const elapsedMs = Math.max(1, Date.now() - monitoringStartTime);
+      const uptimePct = Math.min(100, Math.round((heartbeatCount * UPTIME_HEARTBEAT_INTERVAL_MS / elapsedMs) * 1000) / 10);
+      res.set(cors).json({
+        server: 'quantum-suitability-validator-mcp-server',
+        version: VERSION,
+        first_deployed: FIRST_DEPLOYED,
+        total_lifetime_tool_calls: lifetimeCalls,
+        uptime_percentage: uptimePct,
+        uptime_monitoring_since: monitoringStart ?? nowISO()
+      });
+    })();
+  });
+
   app.get('/session-log', (req, res) => {
     if (req.headers['x-stats-key'] !== process.env.STATS_KEY) {
       res.status(401).set(cors).json({ error: 'Unauthorized' });
@@ -820,6 +856,8 @@ async function runHTTP(): Promise<void> {
     stats.free_tier_calls_by_ip[ip][month] = Math.max(0, currentCalls - TRIAL_EXTENSION_CALLS);
     stats.trial_extensions[emailKey] = { name, email, use_case: use_case ?? '', ip, granted_at: nowISO() };
     saveStats(stats);
+    // 24h follow-up record -- processed by /process-trial-followups (fleet cron)
+    await redisSet(REDIS_PREFIX + ':followup:' + email.toLowerCase().trim(), { email, name, server: 'quantum-suitability-validator-mcp-server', granted_at: nowISO(), sent: false });
     await sendEmail(
       'ojas@kordagencies.com',
       'Quantum Suitability Validator -- Trial Extension: ' + name,
@@ -831,6 +869,40 @@ async function runHTTP(): Promise<void> {
       '<p>Hi ' + name + ',</p><p>Your ' + TRIAL_EXTENSION_CALLS + ' extra free calls have been added. You can keep using Quantum Suitability Validator MCP right now -- no action needed.</p><p>When you need more, Pro access is available at: ' + PRO_UPGRADE_URL + '</p><p>Ojas<br>kordagencies.com</p>'
     );
     res.set(cors).json({ granted: true, additional_calls: TRIAL_EXTENSION_CALLS, message: TRIAL_EXTENSION_CALLS + ' extra free calls added. Check your email for confirmation.', upgrade_url: PRO_UPGRADE_URL });
+  });
+
+  // Fleet cron hits this hourly. Sends exactly one follow-up email per email
+  // address, 24h after a trial extension was granted, unless that email has
+  // since picked up a paid key on this server.
+  app.post('/process-trial-followups', (req, res) => {
+    if (req.headers['x-stats-key'] !== process.env.STATS_KEY) {
+      res.status(401).set(cors).json({ error: 'Unauthorized' });
+      return;
+    }
+    void (async () => {
+      const keys = await redisKeys(REDIS_PREFIX + ':followup:*');
+      const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+      let processed = 0, sent = 0, skippedPaid = 0;
+      for (const key of keys) {
+        const record = await redisGet(key) as { email: string; name: string; granted_at: string; sent: boolean; sent_at?: string } | null;
+        if (!record || record.sent) continue;
+        if (Date.now() - new Date(record.granted_at).getTime() < TWENTY_FOUR_HOURS_MS) continue;
+        processed++;
+        const emailNorm = (record.email || '').toLowerCase().trim();
+        const hasPaidKey = Object.values(stats.paid_api_keys).some(r => (r.email || '').toLowerCase().trim() === emailNorm);
+        if (hasPaidKey) {
+          skippedPaid++;
+        } else {
+          await sendEmail(record.email, 'Quantum Suitability Validator MCP -- quantum triage will block your investigation workflow again without an upgrade',
+            '<p>Hi ' + record.name + ',</p><p>Your trial extension on Quantum Suitability Validator MCP was granted 24 hours ago. Once those extra calls run out, quantum triage stops and any investigation workflow that depends on it pauses until you upgrade.</p><p>Upgrade now: ' + PRO_UPGRADE_URL + '</p><p>Ojas<br>kordagencies.com</p>');
+          sent++;
+        }
+        record.sent = true;
+        record.sent_at = nowISO();
+        await redisSet(key, record);
+      }
+      res.set(cors).json({ checked: keys.length, processed, emails_sent: sent, skipped_already_paid: skippedPaid });
+    })();
   });
 
   // Daily report -- JSON only, for Bizfile aggregation
@@ -894,7 +966,7 @@ async function runHTTP(): Promise<void> {
         res.status(402).set(cors).json({
           jsonrpc: '2.0',
           id: req.body.id,
-          result: { isError: true, content: [{ type: 'text', text: JSON.stringify(buildAssessGateError(currentIP)) }] }
+          result: { isError: true, content: [{ type: 'text', text: JSON.stringify(await buildAssessGateError(currentIP)) }] }
         });
         return;
       }
@@ -915,6 +987,7 @@ async function runHTTP(): Promise<void> {
     void (async () => {
       await loadApiKeysFromRedis();
       await loadFreeTierFromRedis();
+      await initUptimeTracking(UPTIME_HEARTBEAT_KEY, UPTIME_MONITORING_START_KEY, UPTIME_HEARTBEAT_INTERVAL_MS);
       console.error(`quantum-suitability-validator-mcp-server running on http://localhost:${port}/mcp`);
     })();
   });

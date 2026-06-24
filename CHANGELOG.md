@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.18] - 2026-06-24
+- feat: unauthenticated /public-stats endpoint -- first_deployed, lifetime tool calls, uptime %, version, for agent orchestrators evaluating server trustworthiness
+- feat: /process-trial-followups endpoint + 24h follow-up record on trial-extension grant
+- feat: gate responses now self-contained (server + workflow impact + upgrade path in one sentence) and detect cross-server operators via shared fleet Redis, with cross-server trial-extension note
+- feat: outputSchema added to both tools via Zod (additive). Added isError:true to the kill-switch and rate-limit paths on both tools so the MCP SDK's output validation doesn't reject them now that outputSchema is enforced
+- fix: README documented the pre-rewrite verdict system (RECOMMENDED_NOW/BENCHMARK_ONLY/HYBRID_ONLY/SIMULATOR_ONLY/NOT_RECOMMENDED/INSUFFICIENT_INFORMATION) which doesn't exist anywhere in the code -- the real verdict enum is SCIENTIFICALLY_RECOMMENDED_NOW/COMMERCIALLY_RECOMMENDED_NOW/INVESTIGATE_FURTHER/PREMATURE/NOT_QUANTUM_AMENABLE per the expert-validated four-dimensional scoring architecture shipped 2026-06-11. Rewrote the Tools section to match the actual four_scores/advantage_claim_level/recommended_workflow fields.
+
 ## [1.0.17] - 2026-06-23
 - fix: gate returns HTTP 402 (x402 standard for non-transient quota)
 

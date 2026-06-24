@@ -1,4 +1,11 @@
-export const VERSION = '1.0.17';
+export const VERSION = '1.0.18';
+export const FIRST_DEPLOYED = '2026-05-04T02:26:39Z';
+export const LIFETIME_CALLS_REDIS_KEY = 'quantum:lifetime_calls';
+export const UPTIME_HEARTBEAT_KEY = 'quantum:uptime:heartbeat_count';
+export const UPTIME_MONITORING_START_KEY = 'quantum:uptime:monitoring_started';
+export const UPTIME_HEARTBEAT_INTERVAL_MS = 60000;
+export const FLEET_IP24_TTL_SECONDS = 30 * 24 * 60 * 60;
+export const FLEET_CROSS_SERVER_THRESHOLD = 3;
 export const TRIAL_EXTENSION_CALLS = 10;
 export const CHARACTER_LIMIT = 25000;
 export const FREE_TIER_LIMIT = 5;

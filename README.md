@@ -16,27 +16,32 @@ This server is **refusal-first by design**. It downgrades or refuses more often 
 
 ### `quantum_assess_problem` (Free: 5/month, no key required)
 
-Screens a quantum computing proposal against expert decision rules. Returns:
+Screens a quantum computing proposal using an expert-validated four-dimensional scoring framework. Returns:
 
-- `verdict`: RECOMMENDED_NOW | BENCHMARK_ONLY | HYBRID_ONLY | SIMULATOR_ONLY | NOT_RECOMMENDED | NOT_QUANTUM_AMENABLE | INSUFFICIENT_INFORMATION
-- `suitability_score`: 0.0-1.0
+- `verdict`: SCIENTIFICALLY_RECOMMENDED_NOW | COMMERCIALLY_RECOMMENDED_NOW | INVESTIGATE_FURTHER | PREMATURE | NOT_QUANTUM_AMENABLE
+- `four_scores`: scientific_fit (40% weight), hardware_feasibility (25%), advantage_potential (25%), commercial_relevance (10%), composite -- four independent 0.0-1.0 scores so a scientifically valid investigation is never confused with proven commercial advantage
+- `advantage_claim_level`: NONE | HYPOTHESISED | EXPERIMENTAL_SIGNAL | BENCHMARK_SUPPORTED | PRODUCTION_VALIDATED
+- `suitability_score`: 0.0-1.0 (equal to four_scores.composite)
 - `confidence_score`: 0.0-1.0
 - `problem_class`: combinatorial_optimisation | portfolio_optimisation | molecular_simulation | ml_kernel | cryptography_pqc | sampling_monte_carlo | other
 - `dominant_blockers`: specific reasons why the problem fails screening
 - `hype_flags`: detected hype language patterns
 - `baseline_question`: always "What is your classical baseline today, and what metric must improve for this to matter?"
+- `next_best_action`: specific actionable recommendation
 - `agent_action`: ESCALATE_TO_POC | ROUTE_TO_SIMULATOR | DEFINE_BASELINE_FIRST | REJECT | REQUEST_MORE_INFORMATION
 
 ### `quantum_readiness_report` (Pro only)
 
-Full auditable Quantum Readiness Report. Everything from `quantum_assess_problem` plus:
+Full auditable Quantum Readiness Report, weighted by audience profile (RESEARCH, ENTERPRISE, or INVESTOR -- the same problem legitimately scores differently by profile). Everything from `quantum_assess_problem` plus:
 
-- `recommended_workflow`: CLASSICAL_ONLY | HYBRID | SIMULATOR_ONLY | ANNEALING_PATH | GATE_MODEL_VARIATIONAL
+- `recommended_workflow`: CLASSICAL_ONLY | HYBRID | SIMULATOR_ONLY | ANNEALING_PATH | GATE_MODEL_VARIATIONAL | INSUFFICIENT_INFORMATION
 - `formulation_guidance`: QUBO/Ising/variational suitability, estimated binary variables, penalty dominance risk
 - `hardware_recommendations`: hardware family fit scores with access routes (D-Wave Leap, IBM Cloud, IonQ Cloud)
 - `error_budget_assessment`: viability against current noise floors
 - `classical_baseline_assessment`: baseline strength and minimum benchmark requirement
 - `validation_plan`: ordered steps for technical review board submission
+- `refusal_reason`: populated when the report declines to recommend a path forward
+- `commercial_reality_statement`: populated for ENTERPRISE and INVESTOR profiles -- states plainly that production advantage over classical has not yet been broadly demonstrated
 
 ## Connect
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AssessOutputSchema } from './assess.js';
 
 export const ReportInputSchema = z.object({
   problem_description: z.string()
@@ -56,3 +57,36 @@ export const ReportInputSchema = z.object({
 }).strict();
 
 export type ReportInput = z.infer<typeof ReportInputSchema>;
+
+export const ReportOutputSchema = AssessOutputSchema.extend({
+  profile: z.enum(['RESEARCH', 'ENTERPRISE', 'INVESTOR']),
+  recommended_workflow: z.enum(['CLASSICAL_ONLY', 'HYBRID', 'SIMULATOR_ONLY', 'ANNEALING_PATH', 'GATE_MODEL_VARIATIONAL', 'INSUFFICIENT_INFORMATION']),
+  formulation_guidance: z.object({
+    candidate_type: z.enum(['qubo', 'ising', 'gate_model_variational', 'hybrid', 'none']),
+    viability: z.enum(['high', 'medium', 'low', 'not_viable']),
+    estimated_binary_variables: z.number().nullable(),
+    constraint_encoding_risk: z.enum(['low', 'medium', 'high', 'critical']),
+    objective_preservation: z.enum(['high', 'medium', 'low']),
+    penalty_dominance_risk: z.boolean(),
+    notes: z.array(z.string())
+  }),
+  hardware_recommendations: z.array(z.object({
+    hardware_family: z.enum(['annealing', 'gate_model_superconducting', 'gate_model_trapped_ion', 'neutral_atom', 'simulator', 'none']),
+    fit_score: z.number().min(0).max(1),
+    access_route: z.enum(['d_wave_leap', 'ibm_cloud', 'ionq_cloud', 'simulator_only', 'not_applicable']),
+    risks: z.array(z.string())
+  })),
+  error_budget_assessment: z.object({
+    viability: z.enum(['viable', 'marginal', 'not_viable', 'not_applicable']),
+    dominant_limiters: z.array(z.string()),
+    mitigation_options: z.array(z.string())
+  }),
+  classical_baseline_assessment: z.object({
+    strength: z.enum(['strong', 'moderate', 'weak', 'unknown']),
+    required_baseline_method: z.string(),
+    minimum_benchmark_requirement: z.string()
+  }),
+  validation_plan: z.array(z.string()),
+  refusal_reason: z.string().nullable(),
+  commercial_reality_statement: z.string().nullable()
+});
