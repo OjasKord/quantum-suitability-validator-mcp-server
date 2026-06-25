@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.0.20] - 2026-06-25
+- fix: .npmignore was missing token.tmp/*.tmp -- a stray token.tmp file shipped in the v1.0.19 npm tarball. Added token.tmp, *.tmp, .claude/, SYSTEM_PROMPT.md, MCP-Build-Playbook* to .npmignore.
+
 ## [1.0.19] - 2026-06-25
 - Task 1 audit (purpose verb + required fields): already correct on both tools -- ASSESS_DESCRIPTION/REPORT_DESCRIPTION already start with recognized verbs (Analyzes/Generates), and Zod input schemas (problem_description required on both; profile, current_classical_method, constraints_description also required on quantum_readiness_report) already produce a correct `required` array via the SDK's Zod-to-JSON-Schema conversion. No changes needed.
 - feat: calls_remaining field added to both tool responses -- "unlimited" for quantum_readiness_report (paid-only) and for paid quantum_assess_problem callers, numeric free-tier headroom otherwise

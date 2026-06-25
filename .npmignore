@@ -6,3 +6,8 @@ smithery.yaml
 glama.json
 server.json
 CLAUDE.md
+token.tmp
+*.tmp
+.claude/
+SYSTEM_PROMPT.md
+MCP-Build-Playbook*
