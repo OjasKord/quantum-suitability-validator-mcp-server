@@ -80,6 +80,9 @@ export interface AssessOutput {
   escalation_path?: string | null;
   _upgrade_notice?: string;
   _disclaimer: string;
+  calls_remaining: number | 'unlimited';
+  verdict_ttl: number;
+  data_source_status: 'full' | 'degraded' | 'partial';
 }
 
 export interface FormulationGuidance {

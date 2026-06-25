@@ -579,6 +579,7 @@ server.registerTool(
       const output = result.output!;
 
       const remaining = paid ? null : checkFreeTierAllowed(ip).remaining;
+      output.calls_remaining = paid ? 'unlimited' : Math.max(0, remaining ?? 0);
       if (!paid && remaining !== null && remaining <= 1 && remaining > 0) {
         const effectiveLimit = getEffectiveLimit(ip);
         output._upgrade_notice =

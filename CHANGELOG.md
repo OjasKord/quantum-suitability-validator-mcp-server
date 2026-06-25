@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.19] - 2026-06-25
+- Task 1 audit (purpose verb + required fields): already correct on both tools -- ASSESS_DESCRIPTION/REPORT_DESCRIPTION already start with recognized verbs (Analyzes/Generates), and Zod input schemas (problem_description required on both; profile, current_classical_method, constraints_description also required on quantum_readiness_report) already produce a correct `required` array via the SDK's Zod-to-JSON-Schema conversion. No changes needed.
+- feat: calls_remaining field added to both tool responses -- "unlimited" for quantum_readiness_report (paid-only) and for paid quantum_assess_problem callers, numeric free-tier headroom otherwise
+- feat: verdict_ttl field added (7776000s/90 days on both tools -- hardware landscape moves slowly)
+- feat: data_source_status field added (full/degraded/partial). Anthropic is the only external dependency and a failure currently aborts with no verdict (no degraded path exists in this architecture) -- so this server's successful responses always report "full"
+
 ## [1.0.18] - 2026-06-24
 - feat: unauthenticated /public-stats endpoint -- first_deployed, lifetime tool calls, uptime %, version, for agent orchestrators evaluating server trustworthiness
 - feat: /process-trial-followups endpoint + 24h follow-up record on trial-extension grant

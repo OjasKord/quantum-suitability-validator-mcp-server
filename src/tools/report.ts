@@ -1,7 +1,7 @@
 import type { ReportInput } from '../schemas/report.js';
 import type { ReportOutput, AssessOutput, FourScores, AdvantageClaimLevel } from '../types.js';
 import { callClaude, parseClaudeJSON } from '../services/claude-client.js';
-import { nowISO, LEGAL_DISCLAIMER } from '../constants.js';
+import { nowISO, LEGAL_DISCLAIMER, VERDICT_TTL } from '../constants.js';
 
 interface ClaudeReportResponse {
   verdict: string;
@@ -206,7 +206,10 @@ export async function runReport(
       validation_plan: parsed.validation_plan ?? [],
       refusal_reason: parsed.refusal_reason ?? null,
       commercial_reality_statement: commercialStatement,
-      _disclaimer: LEGAL_DISCLAIMER
+      _disclaimer: LEGAL_DISCLAIMER,
+      calls_remaining: 'unlimited', // quantum_readiness_report is paid-only
+      verdict_ttl: VERDICT_TTL.quantum_readiness_report,
+      data_source_status: 'full'
     };
 
     return { output };

@@ -1,7 +1,7 @@
 import type { AssessInput } from '../schemas/assess.js';
 import type { AssessOutput, FourScores, AdvantageClaimLevel } from '../types.js';
 import { callClaude, parseClaudeJSON } from '../services/claude-client.js';
-import { nowISO, LEGAL_DISCLAIMER, PRO_UPGRADE_URL } from '../constants.js';
+import { nowISO, LEGAL_DISCLAIMER, PRO_UPGRADE_URL, VERDICT_TTL } from '../constants.js';
 
 interface ClaudeAssessResponse {
   verdict: string;
@@ -95,7 +95,10 @@ export async function runAssess(
       agent_action: parsed.agent_action as AssessOutput['agent_action'],
       analysis_type: 'AI-assisted quantum triage — NOT a substitute for experimental physicist review',
       checked_at: nowISO(),
-      _disclaimer: LEGAL_DISCLAIMER
+      _disclaimer: LEGAL_DISCLAIMER,
+      calls_remaining: 0, // overwritten by index.ts once free/paid status is known
+      verdict_ttl: VERDICT_TTL.quantum_assess_problem,
+      data_source_status: 'full'
     };
 
     if (parsed.verdict === 'INVESTIGATE_FURTHER') {

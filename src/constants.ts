@@ -1,4 +1,4 @@
-export const VERSION = '1.0.18';
+export const VERSION = '1.0.19';
 export const FIRST_DEPLOYED = '2026-05-04T02:26:39Z';
 export const LIFETIME_CALLS_REDIS_KEY = 'quantum:lifetime_calls';
 export const UPTIME_HEARTBEAT_KEY = 'quantum:uptime:heartbeat_count';
@@ -11,6 +11,8 @@ export const CHARACTER_LIMIT = 25000;
 export const FREE_TIER_LIMIT = 5;
 export const PERSIST_FILE = '/tmp/quantum_stats.json';
 export const FREE_TIER_REDIS_KEY = 'quantum:free_tier_usage';
+// Caching/staleness policy per tool, in seconds. 90 days -- hardware landscape moves slowly.
+export const VERDICT_TTL: Record<string, number> = { quantum_assess_problem: 7776000, quantum_readiness_report: 7776000 };
 export const PRO_UPGRADE_URL = 'https://buy.stripe.com/cNi28q27P9Hnegk2paebu0x';
 export const ENTERPRISE_UPGRADE_URL = 'https://buy.stripe.com/7sY14m7s98Djfko4xiebu0y';
 export const ALLOWED_PAYMENT_LINK_IDS = ['plink_1TSzE1D6WvRe6sn379fRigF5', 'plink_1TSzEeD6WvRe6sn32jE5KU2F'];
