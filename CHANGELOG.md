@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.0.21] - 2026-06-26
+- fix: trial extension requests now written to Redis (quantum:trial:{email}) on grant -- permanent audit trail that survives redeploys; previously in-memory only
+
 ## [1.0.20] - 2026-06-25
 - fix: .npmignore was missing token.tmp/*.tmp -- a stray token.tmp file shipped in the v1.0.19 npm tarball. Added token.tmp, *.tmp, .claude/, SYSTEM_PROMPT.md, MCP-Build-Playbook* to .npmignore.
 
