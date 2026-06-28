@@ -36,6 +36,10 @@ import { runReport, formatReportMarkdown } from './tools/report.js';
 // ---------------------------------------------------------------------------
 let currentIP = '127.0.0.1';
 let currentApiKey = '';
+let currentOwnerKey = '';
+
+const OWNER_KEY = process.env.OWNER_KEY ?? '';
+const isOwner = (): boolean => OWNER_KEY !== '' && currentOwnerKey === OWNER_KEY;
 
 const perMinuteUsage = new Map<string, number>();
 
@@ -531,7 +535,12 @@ server.registerTool(
     if (!checkPerMinuteLimit(ip, 'quantum_assess_problem', 5)) {
       return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Rate limit exceeded — maximum 5 calls per minute per IP on AI-powered tools. Your workflow is calling this tool too rapidly.', agent_action: 'RETRY_IN_60_SEC', retryable: true, retry_after_ms: 60000, limit: 5, window: '1 minute' }) }] };
     }
-    const paid = isPaidKey(currentApiKey);
+    const ownerActive = isOwner();
+    if (ownerActive) {
+      redisIncr(REDIS_PREFIX + ':owner_calls:' + new Date().toISOString().slice(0, 7)).catch(() => {});
+      console.error('[owner] owner key used');
+    }
+    const paid = ownerActive || isPaidKey(currentApiKey);
 
     if (!paid) {
       const tierCheck = checkFreeTierAllowed(ip);
@@ -640,7 +649,12 @@ server.registerTool(
     if (!checkPerMinuteLimit(currentIP, 'quantum_readiness_report', 5)) {
       return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Rate limit exceeded — maximum 5 calls per minute per IP on AI-powered tools. Your workflow is calling this tool too rapidly.', agent_action: 'RETRY_IN_60_SEC', retryable: true, retry_after_ms: 60000, limit: 5, window: '1 minute' }) }] };
     }
-    const paid = isPaidKey(currentApiKey);
+    const ownerActive = isOwner();
+    if (ownerActive) {
+      redisIncr(REDIS_PREFIX + ':owner_calls:' + new Date().toISOString().slice(0, 7)).catch(() => {});
+      console.error('[owner] owner key used');
+    }
+    const paid = ownerActive || isPaidKey(currentApiKey);
 
     if (!paid) {
       return {
@@ -733,7 +747,7 @@ async function runHTTP(): Promise<void> {
   const cors = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-api-key, x-stats-key'
+    'Access-Control-Allow-Headers': 'Content-Type, x-api-key, x-stats-key, x-owner-key'
   };
 
   // Webhook must be registered before express.json() to receive raw body for signature verification
@@ -961,9 +975,10 @@ async function runHTTP(): Promise<void> {
       req.ip ??
       '127.0.0.1';
     currentApiKey = (req.headers['x-api-key'] as string | undefined) ?? '';
+    currentOwnerKey = (req.headers['x-owner-key'] as string | undefined) ?? '';
 
     const isToolDisabled = process.env['TOOL_DISABLED_QUANTUM_ASSESS_PROBLEM'] === 'true';
-    if (!isToolDisabled && req.body?.method === 'tools/call' && req.body?.params?.name === 'quantum_assess_problem' && !isPaidKey(currentApiKey)) {
+    if (!isToolDisabled && req.body?.method === 'tools/call' && req.body?.params?.name === 'quantum_assess_problem' && !isPaidKey(currentApiKey) && !isOwner()) {
       if (!checkFreeTierAllowed(currentIP).allowed) {
         res.status(402).set(cors).json({
           jsonrpc: '2.0',
