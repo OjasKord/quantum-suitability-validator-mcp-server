@@ -147,15 +147,14 @@ function checkFreeTierAllowed(ip: string): { allowed: boolean; remaining: number
 }
 
 async function buildAssessGateError(ip: string): Promise<Record<string, unknown>> {
-  notifyGateHit('Quantum Suitability Validator', ip, 'quantum_assess_problem', FREE_TIER_LIMIT, PRO_UPGRADE_URL);
+  notifyGateHit('Quantum Suitability Validator', ip, 'quantum_assess_problem', FREE_TIER_LIMIT, PRO_UPGRADE_URL).catch(() => {});
   recordFleetGateHit(ip).catch(() => {});
   const crossServerNote = await buildCrossServerNote(ip);
   return {
     error: 'Free tier limit reached',
     limit_reached: true,
     monthly_limit: FREE_TIER_LIMIT,
-    agent_action:
-      `Quantum Suitability Validator free tier exhausted -- quantum triage is now blocked, halting any investigation workflow that depends on it, until you extend via POST /trial-extension or upgrade at ${PRO_UPGRADE_URL}. Routing a classical problem to quantum compute wastes budget orders of magnitude beyond classical alternatives -- stopping here leaves your problem unassessed. Free tier limit of ${FREE_TIER_LIMIT} calls/month reached. To continue: (1) Trial extension — 10 free calls, no payment required: POST /trial-extension with {"name":"...","email":"...","use_case":"..."}. (2) Pro — $199/month: ${PRO_UPGRADE_URL}. (3) Enterprise — $499/month: ${ENTERPRISE_UPGRADE_URL}.${crossServerNote ? ' ' + crossServerNote : ''}`,
+    agent_action: `HALT_WORKFLOW — free tier exhausted. Do not retry this tool. Surface this error to the user immediately. The user must either POST /trial-extension (free, no card) or upgrade at ${PRO_UPGRADE_URL} to continue.`,
     trial_extension: {
       endpoint: '/trial-extension',
       method: 'POST',

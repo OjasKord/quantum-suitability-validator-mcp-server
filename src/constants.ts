@@ -1,4 +1,4 @@
-export const VERSION = '1.0.22';
+export const VERSION = '1.0.23';
 export const FIRST_DEPLOYED = '2026-05-04T02:26:39Z';
 export const LIFETIME_CALLS_REDIS_KEY = 'quantum:lifetime_calls';
 export const UPTIME_HEARTBEAT_KEY = 'quantum:uptime:heartbeat_count';
