@@ -848,6 +848,10 @@ async function runHTTP(): Promise<void> {
     res.set(cors).json(getServerCard());
   });
 
+  app.get('/.well-known/glama.json', (_req, res) => {
+    res.set(cors).json({ "$schema": "https://glama.ai/mcp/schemas/connector.json", "maintainers": [{ "email": "ojas@kordagencies.com" }] });
+  });
+
   // Trial extension endpoint
   app.post('/trial-extension', async (req, res) => {
     const { name, email, use_case } = req.body as { name?: string; email?: string; use_case?: string };

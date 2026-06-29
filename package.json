@@ -1,6 +1,6 @@
 {
   "name": "quantum-suitability-validator-mcp",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "description": "Quantum computing suitability validator for AI agents. Screens problems for quantum advantage before budget allocation. QUANTUM/CLASSICAL verdict in one call.",
   "type": "module",
   "main": "dist/index.js",
