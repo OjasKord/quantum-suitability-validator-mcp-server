@@ -1,6 +1,18 @@
 {
-  "name": "quantum-suitability-validator-mcp-server",
-  "description": "MCP server that screens quantum computing POC proposals against expert decision rules. Refusal-first triage engine for innovation agents and R&D workflow agents.",
-  "homepage": "https://kordagencies.com",
-  "license": "MIT"
+  "$schema": "https://glama.ai/mcp/servers/schema.json",
+  "name": "Quantum Suitability Validator MCP",
+  "description": "Screens quantum computing POC proposals against expert decision rules. Refusal-first triage engine for innovation agents and R&D workflow agents. Returns SUITABLE/UNSUITABLE/BORDERLINE verdict with quantum-readiness score and next-step recommendations.",
+  "license": "MIT",
+  "categories": [
+    "developer-tools",
+    "business-intelligence"
+  ],
+  "remote": {
+    "transport": "sse",
+    "url": "https://quantum-suitability-validator-mcp-production.up.railway.app/sse"
+  },
+  "links": {
+    "homepage": "https://kordagencies.com",
+    "npm": "https://www.npmjs.com/package/quantum-suitability-validator-mcp-server"
+  }
 }
