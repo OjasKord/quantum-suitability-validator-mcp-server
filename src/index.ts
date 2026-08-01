@@ -25,7 +25,6 @@ import {
 } from './constants.js';
 import type { Stats, DependencyStatus, ServerCard, PaidKeyRecord } from './types.js';
 import { REDIS_PREFIX, redisGet, redisSet, redisKeys, redisDelete, appendSessionLog, redisIncr, initUptimeTracking, recordFleetGateHit, buildCrossServerNote } from './services/redis.js';
-import { notifyGateHit } from './services/gate-notify.js';
 import { AssessInputSchema, AssessOutputSchema } from './schemas/assess.js';
 import { ReportInputSchema, ReportOutputSchema } from './schemas/report.js';
 import { runAssess, formatAssessMarkdown } from './tools/assess.js';
@@ -147,7 +146,15 @@ function checkFreeTierAllowed(ip: string): { allowed: boolean; remaining: number
 }
 
 async function buildAssessGateError(ip: string): Promise<Record<string, unknown>> {
-  notifyGateHit('Quantum Suitability Validator', ip, 'quantum_assess_problem', FREE_TIER_LIMIT, PRO_UPGRADE_URL).catch(() => {});
+  // Gate hits (free-tier exhausted) return before the normal success-path
+  // counters run -- log it here so /daily-report and /stats see gate
+  // volume as EVENTS instead of being blind to them. No email on a raw
+  // gate hit (removed 2026-07-27) -- email only on trial-extension
+  // request or a Stripe payment event.
+  stats.total_calls++;
+  stats.assess_calls++;
+  saveStats(stats);
+  appendSessionLog(ip, 'quantum_assess_problem', 'gated').catch(() => {});
   recordFleetGateHit(ip).catch(() => {});
   const crossServerNote = await buildCrossServerNote(ip);
   return {
@@ -169,9 +176,26 @@ function isPaidKey(key: string): boolean {
   return key.length > 0 && Object.prototype.hasOwnProperty.call(stats.paid_api_keys, key);
 }
 
+// Redis-independent circuit breaker for the email paths that remain after
+// raw gate-hit emails were removed 2026-07-27 (trial-extension request +
+// payment events only). Caps total sends server-wide so a flood of fake
+// trial-extension requests can't exhaust the fleet's shared Resend quota
+// even if Redis-backed dedup elsewhere is unavailable (Lesson 209).
+const EMAIL_CIRCUIT_BREAKER_LIMIT = 20;
+let emailBreakerCount = 0;
+let emailBreakerWindowStart = Date.now();
+function emailCircuitBreakerAllows(): boolean {
+  const now = Date.now();
+  if (now - emailBreakerWindowStart > 3600000) { emailBreakerWindowStart = now; emailBreakerCount = 0; }
+  if (emailBreakerCount >= EMAIL_CIRCUIT_BREAKER_LIMIT) return false;
+  emailBreakerCount++;
+  return true;
+}
+
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) return;
+  if (!emailCircuitBreakerAllows()) { console.error('[EmailBreaker] suppressed email to ' + to + ' — hourly cap reached'); return; }
   try {
     await axios.post(
       'https://api.resend.com/emails',
@@ -301,7 +325,7 @@ async function handleStripeEvent(event: Record<string, unknown>): Promise<void> 
   saveStats(stats);
 
   const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey && email !== 'unknown') {
+  if (resendKey && email !== 'unknown' && emailCircuitBreakerAllows()) {
     try {
       await axios.post(
         'https://api.resend.com/emails',
@@ -954,9 +978,15 @@ async function runHTTP(): Promise<void> {
     const sessionKeys = await redisKeys(`${REDIS_PREFIX}:session:*:${today}`);
     const toolBreakdown: Record<string, number> = {};
     let calls24h = 0;
+    let gateHits24h = 0;
     for (const key of sessionKeys) {
-      const calls = (await redisGet(key) as Array<{ tool: string; timestamp: string }> | null) ?? [];
-      calls.forEach(c => { if (c.tool) { toolBreakdown[c.tool] = (toolBreakdown[c.tool] ?? 0) + 1; calls24h++; } });
+      const calls = (await redisGet(key) as Array<{ tool: string; timestamp: string; tier?: string }> | null) ?? [];
+      calls.forEach(c => {
+        if (!c.tool) return;
+        if (c.tier === 'gated') { gateHits24h++; return; }
+        toolBreakdown[c.tool] = (toolBreakdown[c.tool] ?? 0) + 1;
+        calls24h++;
+      });
     }
     const unique24h = sessionKeys.length;
 
@@ -964,6 +994,7 @@ async function runHTTP(): Promise<void> {
       server: 'quantum-suitability-validator-mcp',
       date: today,
       calls_24h: calls24h,
+      gate_hits_24h: gateHits24h,
       unique_ips_24h: unique24h,
       limit_hits: limitHits,
       trial_extensions: trialCount,
