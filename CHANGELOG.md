@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.28] - 2026-08-19
+- security: trial-extension policy changed to one grant per IP, ever. New Redis key `trial_ext_granted:{ipSafe}` (no TTL) is the authoritative dedup — never keyed on name/email, which are attacker-controlled and trivially rotated (this server had 3 grants from a single IP under 3 different emails before this fix). Repeat requests from an already-granted IP get HTTP 200 with `granted:false` and a message pointing to the paid upgrade path, not a re-grant.
+- added: Redis-independent in-process circuit breaker (5 new grants/hour/server) as a backstop for the per-IP dedup in case Redis is unreachable.
+- ops: revoked 2 of 3 surplus trial-extension grants previously issued to a single probing IP (35.186.14.156); kept the earliest and seeded the new per-IP marker so it counts as that IP's one lifetime extension.
+
 ## [1.0.27] - 2026-08-01
 - fix: gate hits (free-tier exhausted on quantum_assess_problem) now write a tier:'gated' session-log entry and increment stats.total_calls/assess_calls before the early return, so /daily-report and /stats see gate volume as events instead of being blind to them (new `gate_hits_24h` field). appendSessionLog gained an optional `tier` parameter (defaults to 'success') to carry this.
 - removed: notifyGateHit() and the gate-notify.ts shared module — raw free-tier gate hits no longer send an email (still increment counters, still return 402). Email now fires only on a trial-extension request or a Stripe payment event
