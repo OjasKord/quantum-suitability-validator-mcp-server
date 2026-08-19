@@ -1,6 +1,6 @@
 {
   "name": "quantum-suitability-validator-mcp",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "Quantum computing suitability validator for AI agents. Screens problems for quantum advantage before budget allocation. QUANTUM/CLASSICAL verdict in one call.",
   "type": "module",
   "main": "dist/index.js",
@@ -30,14 +30,18 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
+    "@coinbase/x402": "^2.1.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
+    "@x402/core": "^2.23.0",
+    "@x402/evm": "^2.23.0",
+    "@x402/extensions": "^2.23.0",
     "axios": "^1.7.9",
-    "zod": "^3.23.8",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
     "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
