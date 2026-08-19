@@ -46,6 +46,7 @@ let currentIP = '127.0.0.1';
 let currentApiKey = '';
 let currentOwnerKey = '';
 let currentPaymentSignature = '';
+let currentRes: import('express').Response | null = null;  // captured so x402 headers (no raw res inside MCP SDK tool handlers) can still be set
 
 const OWNER_KEY = process.env.OWNER_KEY ?? '';
 const isOwner = (): boolean => OWNER_KEY !== '' && currentOwnerKey === OWNER_KEY;
@@ -76,6 +77,8 @@ let x402Server: any = null;
 // window instead of silently treating it as a free-tier call.
 let x402Ready = false;
 let decodePaymentSignatureHeader: ((header: string) => any) | null = null;
+let encodePaymentRequiredHeader: ((paymentRequired: any) => string) | null = null;
+let encodePaymentResponseHeader: ((settleResponse: any) => string) | null = null;
 let declareDiscoveryExtension: ((opts: any) => any) | null = null;
 let X402_DISCOVERY_EXTENSIONS: Record<string, any> = {};
 
@@ -103,6 +106,8 @@ if (X402_ENABLED) {
     X402_NETWORK_ENV === 'base' ? import('@coinbase/x402') : Promise.resolve(null)
   ]).then(([core, http, evm, bazaarExt, coinbase]) => {
     decodePaymentSignatureHeader = http.decodePaymentSignatureHeader;
+    encodePaymentRequiredHeader = http.encodePaymentRequiredHeader;
+    encodePaymentResponseHeader = http.encodePaymentResponseHeader;
     declareDiscoveryExtension = bazaarExt.declareDiscoveryExtension;
 
     const facilitatorConfig =
@@ -306,6 +311,17 @@ async function buildAssessGateError(ip: string): Promise<Record<string, unknown>
       const paymentRequired = await x402Server.createPaymentRequiredResponse(built, { url: 'https://quantum-suitability-validator-mcp-production.up.railway.app', description: 'Quantum Suitability Validator MCP — quantum_assess_problem', mimeType: 'application/json' }, undefined, X402_DISCOVERY_EXTENSIONS.quantum_assess_problem);
       gateBody.payment_required = paymentRequired;
       gateBody.payment_rails = ['x402', 'trial_extension', 'paid_key'];
+      // The MCP SDK's tool-handler callback has no raw `res` access (transport-agnostic by
+      // design), so the JSON body above is what an MCP-native agent reads. But the reference
+      // x402 client library (@x402/core's x402HTTPClient.getPaymentRequiredResponse) looks for
+      // the PAYMENT-REQUIRED HTTP header first and only falls back to the body for x402Version
+      // 1 payloads -- this server builds v2, so a standards-compliant x402 client needs the
+      // header too, not just the body. currentRes is captured per-request in the /mcp handler
+      // specifically so this can still be set even from inside a tool-handler-triggered gate hit.
+      if (encodePaymentRequiredHeader && currentRes) {
+        try { currentRes.setHeader('PAYMENT-REQUIRED', encodePaymentRequiredHeader(paymentRequired)); }
+        catch (e) { console.error('[x402] failed to set PAYMENT-REQUIRED header:', (e as Error).message); }
+      }
     } catch (e) { console.error('[x402] failed to build 402 envelope:', (e as Error).message); }
   }
   return gateBody;
@@ -823,6 +839,13 @@ server.registerTool(
           };
         }
         redisIncr(REDIS_PREFIX + ':x402_calls:' + new Date().toISOString().slice(0, 7)).catch(() => {});
+        // Same rationale as the PAYMENT-REQUIRED header in buildAssessGateError -- the reference
+        // x402 client (x402HTTPClient.getPaymentSettleResponse) reads PAYMENT-RESPONSE (or
+        // X-PAYMENT-RESPONSE) off the HTTP response, not the body, to confirm settlement.
+        if (encodePaymentResponseHeader && currentRes) {
+          try { currentRes.setHeader('PAYMENT-RESPONSE', encodePaymentResponseHeader(settleResult)); }
+          catch (e) { console.error('[x402] failed to set PAYMENT-RESPONSE header:', (e as Error).message); }
+        }
         // Distinct, louder alert for a real x402 settlement -- this is the fleet's key signal
         // for a real external agent-native payment. Never blocks the response; failure here
         // must never affect the already-settled, already-delivered result.
@@ -1277,6 +1300,7 @@ async function runHTTP(): Promise<void> {
     currentApiKey = (req.headers['x-api-key'] as string | undefined) ?? '';
     currentOwnerKey = (req.headers['x-owner-key'] as string | undefined) ?? '';
     currentPaymentSignature = (req.headers['payment-signature'] as string | undefined) ?? '';
+    currentRes = res;  // x402 needs to set PAYMENT-REQUIRED/PAYMENT-RESPONSE headers from inside the tool handler, which has no direct res access
 
     const isToolDisabled = process.env['TOOL_DISABLED_QUANTUM_ASSESS_PROBLEM'] === 'true';
     // A request carrying a payment-signature header is deferred to the tool handler, which does
