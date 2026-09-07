@@ -1071,10 +1071,10 @@ async function runHTTP(): Promise<void> {
 
   app.get('/stats', (req, res) => {
     if (!process.env.STATS_KEY || req.headers['x-stats-key'] !== process.env.STATS_KEY) {
-      res.status(401).set(cors).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    res.set(cors).json(getStatsPayload());
+    res.json(getStatsPayload());
   });
 
   // Unauthenticated machine-readable track record -- for agent orchestrators
@@ -1104,7 +1104,7 @@ async function runHTTP(): Promise<void> {
 
   app.get('/session-log', (req, res) => {
     if (!process.env.STATS_KEY || req.headers['x-stats-key'] !== process.env.STATS_KEY) {
-      res.status(401).set(cors).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
       return;
     }
     void (async () => {
@@ -1120,7 +1120,7 @@ async function runHTTP(): Promise<void> {
         sessions.push({ ip: ipPart.slice(0, 8), date, calls, first_call: calls[0]?.timestamp ?? '', last_call: calls[calls.length - 1]?.timestamp ?? '' });
       }
       sessions.sort((a, b) => String(b.first_call).localeCompare(String(a.first_call)));
-      res.set(cors).json(sessions);
+      res.json(sessions);
     })();
   });
 

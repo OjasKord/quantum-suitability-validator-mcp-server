@@ -1,4 +1,9 @@
-export const VERSION = '1.0.30';
+import { readFileSync } from 'fs';
+
+// Single source of truth -- see L121 fix, 2026-09-07. Was previously a hand-typed
+// literal that silently drifted from package.json's version every time `npm
+// version patch` ran without a matching manual edit here.
+export const VERSION: string = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 export const FIRST_DEPLOYED = '2026-05-04T02:26:39Z';
 export const LIFETIME_CALLS_REDIS_KEY = 'quantum:lifetime_calls';
 export const UPTIME_HEARTBEAT_KEY = 'quantum:uptime:heartbeat_count';
